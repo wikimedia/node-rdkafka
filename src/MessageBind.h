@@ -10,11 +10,10 @@ using namespace v8;
 
 class MessageBind : public Nan::ObjectWrap {
     public:
-        static void Init();
-        static Local<Object> NewInstance(Local<Value> arg);
+        static Nan::Persistent<FunctionTemplate> constructor_template;
+        static NAN_MODULE_INIT(Init);
     private:
         static NAN_METHOD(New);
-        static Nan::Persistent<Function> constructor;
 
         MessageBind();
         ~MessageBind();

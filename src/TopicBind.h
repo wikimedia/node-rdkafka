@@ -10,21 +10,17 @@ using namespace v8;
 
 class TopicBind : public Nan::ObjectWrap {
     public:
-        static void Init();
-        static Local<Object> NewInstance(Local<Value> arg);
+        static Nan::Persistent<FunctionTemplate> constructor_template;
+        static NAN_MODULE_INIT(Init);
 
         // String name();
         static NAN_METHOD(Name);
 
-
     private:
         static NAN_METHOD(New);
-        static Nan::Persistent<Function> constructor;
 
         TopicBind();
         ~TopicBind();
-
-        RdKafka rd_topic;
 };
 
 #endif

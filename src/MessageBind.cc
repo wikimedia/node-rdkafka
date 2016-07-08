@@ -5,31 +5,18 @@ using namespace v8;
 MessageBind::MessageBind() {};
 MessageBind::~MessageBind() {};
 
-Nan::Persistent<Function> MessageBind::constructor;
+Nan::Persistent<FunctionTemplate> MessageBind::constructor_template;
 
-void
-MessageBind::Init() {
-  Nan::HandleScope scope;
+NAN_MODULE_INIT(MessageBind::Init) {
+    Nan::HandleScope scope;
 
-  Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>(New);
-  tpl->SetClassName(Nan::New("Message").ToLocalChecked());
-  tpl->InstanceTemplate()->SetInternalFieldCount(1);
+    Local<FunctionTemplate> t = Nan::New<FunctionTemplate>(New);
+    t->InstanceTemplate()->SetInternalFieldCount(1);
+    t->SetClassName(Nan::New("Message").ToLocalChecked());
 
-  // Register all prototype methods
-  // Nan::SetPrototypeMethod(tpl, "start", WRAPPED_METHOD_NAME(Start));
-
-  constructor.Reset(tpl->GetFunction());
-}
-
-Local<Object>
-MessageBind::NewInstance(Local<Value> arg) {
-  Nan::EscapableHandleScope scope;
-
-  const unsigned argc = 1;
-  Local<Value> argv[argc] = { arg };
-  Local<Function> cons = Nan::New<Function>(constructor);
-  Local<Object> instance = Nan::NewInstance(cons, argc, argv).ToLocalChecked();
-  return scope.Escape(instance);
+    constructor_template.Reset(t);
+    Nan::Set(target, Nan::New("Message").ToLocalChecked(),
+        Nan::GetFunction(t).ToLocalChecked());
 }
 
 NAN_METHOD(MessageBind::New) {

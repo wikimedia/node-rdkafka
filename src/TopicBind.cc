@@ -2,31 +2,20 @@
 
 using namespace v8;
 
-Nan::Persistent<Function> TopicBind::constructor;
+Nan::Persistent<FunctionTemplate> TopicBind::constructor_template;
 
-void
-TopicBind::Init() {
-  Nan::HandleScope scope;
+NAN_MODULE_INIT(TopicBind::Init) {
+    Nan::HandleScope scope;
 
-  Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>(New);
-  tpl->SetClassName(Nan::New("Topic").ToLocalChecked());
-  tpl->InstanceTemplate()->SetInternalFieldCount(1);
+    Local<FunctionTemplate> t = Nan::New<FunctionTemplate>(New);
+    t->InstanceTemplate()->SetInternalFieldCount(1);
+    t->SetClassName(Nan::New("Topic").ToLocalChecked());
 
-  // Register all prototype methods
-  Nan::SetPrototypeMethod(tpl, "name", Name);
+    Nan::SetPrototypeMethod(t, "name", Name);
 
-  constructor.Reset(tpl->GetFunction());
-}
-
-Local<Object>
-TopicBind::NewInstance(Local<Value> arg) {
-  Nan::EscapableHandleScope scope;
-
-  const unsigned argc = 1;
-  Local<Value> argv[argc] = { arg };
-  Local<Function> cons = Nan::New<Function>(constructor);
-  Local<Object> instance = Nan::NewInstance(cons, argc, argv).ToLocalChecked();
-  return scope.Escape(instance);
+    constructor_template.Reset(t);
+    Nan::Set(target, Nan::New("Topic").ToLocalChecked(),
+        Nan::GetFunction(t).ToLocalChecked());
 }
 
 NAN_METHOD(TopicBind::New) {
@@ -40,11 +29,7 @@ NAN_METHOD(TopicBind::New) {
     info.GetReturnValue().Set(info.This());
 }
 
-TopicBind::TopicBind() {
-    std::string name("hello world");
-    this->rd_topic = RdKafka::Topic.create()
-};
-
+TopicBind::TopicBind() {};
 TopicBind::~TopicBind() {};
 
 
