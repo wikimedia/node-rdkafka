@@ -4,6 +4,7 @@
 #include "MessageBind.h"
 #include "TopicBind.h"
 #include "TopicPartitionBind.h"
+#include "KafkaConsumerBind.h"
 
 using namespace v8;
 
@@ -13,6 +14,7 @@ NAN_MODULE_INIT(RegisterModule) {
     MessageBind::Init(target);
     TopicBind::Init(target);
     TopicPartitionBind::Init(target);
+    KafkaConsumerBind::Init(target);
 }
 
 NODE_MODULE(bindings, RegisterModule)
