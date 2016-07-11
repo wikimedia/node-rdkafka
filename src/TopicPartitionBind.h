@@ -10,11 +10,8 @@ using namespace v8;
 
 class TopicPartitionBind : public Nan::ObjectWrap {
     public:
-        static Nan::Persistent<FunctionTemplate> constructor_template;
+        static Nan::Persistent<Function> constructor;
         static NAN_MODULE_INIT(Init);
-
-        TopicPartitionBind(std::string topic, int partition);
-        TopicPartitionBind(RdKafka::TopicPartition* impl);
 
         // String topic();
         static NAN_METHOD(Topic);
@@ -27,10 +24,14 @@ class TopicPartitionBind : public Nan::ObjectWrap {
         // ErrorCode err();
         static NAN_METHOD(Err);
 
+        static Local<Object> FromImpl(RdKafka::TopicPartition* impl);
+
         RdKafka::TopicPartition* impl;
     private:
         static NAN_METHOD(New);
 
+        TopicPartitionBind(std::string topic, int partition);
+        TopicPartitionBind(RdKafka::TopicPartition* impl);
         ~TopicPartitionBind();
 };
 

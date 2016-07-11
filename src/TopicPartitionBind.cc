@@ -3,7 +3,7 @@
 
 using namespace v8;
 
-Nan::Persistent<FunctionTemplate> TopicPartitionBind::constructor_template;
+Nan::Persistent<Function> TopicPartitionBind::constructor;
 
 NAN_MODULE_INIT(TopicPartitionBind::Init) {
     Nan::HandleScope scope;
@@ -19,7 +19,8 @@ NAN_MODULE_INIT(TopicPartitionBind::Init) {
     Nan::SetPrototypeMethod(t, "setOffset", SetOffset);
     Nan::SetPrototypeMethod(t, "err", Err);
 
-    constructor_template.Reset(t);
+    constructor.Reset(t->GetFunction());
+
     Nan::Set(target, Nan::New("TopicPartition").ToLocalChecked(),
         Nan::GetFunction(t).ToLocalChecked());
 }
@@ -29,14 +30,27 @@ NAN_METHOD(TopicPartitionBind::New) {
         return Nan::ThrowError("Non-constructor invocation not supported");
     }
 
-    REQUIRE_ARGUMENTS(2);
-    REQUIRE_ARGUMENT_STRING(0, topic);
-    REQUIRE_ARGUMENT_NUMBER(1, partition);
+    TopicPartitionBind* obj;
+    if (info.Length() == 1) {
+        REQUIRE_ARGUMENT_EXTERNAL(0, impl, RdKafka::TopicPartition*);
+        obj = new TopicPartitionBind(impl);
+    } else {
+        REQUIRE_ARGUMENTS(2);
+        REQUIRE_ARGUMENT_STRING(0, topic);
+        REQUIRE_ARGUMENT_NUMBER(1, partition);
+        obj = new TopicPartitionBind(std::string(*topic), (int)partition);
+    }
 
-    TopicPartitionBind* obj = new TopicPartitionBind(std::string(*topic), (int)partition);
     obj->Wrap(info.This());
-
     info.GetReturnValue().Set(info.This());
+}
+
+Local<Object> TopicPartitionBind::FromImpl(RdKafka::TopicPartition* impl) {
+    int argc = 1;
+    Local<Value> argv[] = {
+        External::New(Isolate::GetCurrent(), impl)
+    };
+    return Nan::NewInstance(Nan::New(TopicPartitionBind::constructor), argc, argv).ToLocalChecked();
 }
 
 TopicPartitionBind::TopicPartitionBind(std::string topic, int partition) {

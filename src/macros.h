@@ -24,4 +24,10 @@
     }                                                                          \
     double var = info[i]->NumberValue();
 
+#define REQUIRE_ARGUMENT_EXTERNAL(i, var, TYPE)                                \
+    if (info.Length() <= (i) || !info[i]->IsExternal()) {                      \
+        return Nan::ThrowTypeError("Argument " #i " must be a number");        \
+    }                                                                          \
+    TYPE var = (TYPE) External::Cast(*info[i])->Value();
+
 #endif
