@@ -38,7 +38,7 @@ NAN_METHOD(TopicPartitionBind::New) {
         REQUIRE_ARGUMENTS(2);
         REQUIRE_ARGUMENT_STRING(0, topic);
         REQUIRE_ARGUMENT_NUMBER(1, partition);
-        obj = new TopicPartitionBind(std::string(*topic), (int)partition);
+        obj = new TopicPartitionBind(topic, (int)partition);
     }
 
     obj->Wrap(info.This());

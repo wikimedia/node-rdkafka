@@ -37,11 +37,23 @@ NAN_METHOD(KafkaConsumerBind::New) {
 KafkaConsumerBind::KafkaConsumerBind() {
     // TODO: Handle configuration and errors
     std::string errstr;
+
+    RdKafka::Conf *tconf = RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC);
+    if (tconf->set("auto.offset.reset", "smallest", errstr) != RdKafka::Conf::CONF_OK) {
+        Nan::ThrowError(errstr.c_str());
+    };
+
     RdKafka::Conf *conf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
-    if (conf->set("group.id", "atest_test_test3", errstr) != RdKafka::Conf::CONF_OK) {
+    if (conf->set("group.id", "atest_test_test9", errstr) != RdKafka::Conf::CONF_OK) {
         Nan::ThrowError(errstr.c_str());
     }
     if (conf->set("metadata.broker.list", "127.0.0.1:9092", errstr) != RdKafka::Conf::CONF_OK) {
+        Nan::ThrowError(errstr.c_str());
+    };
+    if (conf->set("fetch.wait.max.ms", "0", errstr) != RdKafka::Conf::CONF_OK) {
+        Nan::ThrowError(errstr.c_str());
+    };
+    if (conf->set("default_topic_conf", tconf, errstr) != RdKafka::Conf::CONF_OK) {
         Nan::ThrowError(errstr.c_str());
     };
 

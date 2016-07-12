@@ -12,7 +12,7 @@ NAN_MODULE_INIT(MessageBind::Init) {
     t->InstanceTemplate()->SetInternalFieldCount(1);
     t->SetClassName(Nan::New("Message").ToLocalChecked());
 
-    // Register all prototype methods
+    // Register getters for all the properties
     Nan::SetAccessor(t->InstanceTemplate(), Nan::New("errStr").ToLocalChecked(), ErrStr);
     Nan::SetAccessor(t->InstanceTemplate(), Nan::New("err").ToLocalChecked(), Err);
     Nan::SetAccessor(t->InstanceTemplate(), Nan::New("topicName").ToLocalChecked(), TopicName);

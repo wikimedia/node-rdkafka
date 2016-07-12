@@ -16,7 +16,7 @@
     if (info.Length() <= (i) || !info[i]->IsString()) {                        \
         return Nan::ThrowTypeError("Argument " #i " must be a string");        \
     }                                                                          \
-    Nan::Utf8String var(info[i]);
+    std::string var(*Nan::Utf8String(info[i]));
 
 #define REQUIRE_ARGUMENT_NUMBER(i, var)                                        \
     if (info.Length() <= (i) || !info[i]->IsNumber()) {                        \

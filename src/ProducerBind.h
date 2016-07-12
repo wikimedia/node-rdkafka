@@ -15,8 +15,6 @@ class ProducerBind : public Nan::ObjectWrap {
 
         // void produce()
         static NAN_METHOD(Produce);
-        // void subscribe(topics[]);
-        static NAN_METHOD(Subscribe);
 
         RdKafka::Producer* impl;
     private:
