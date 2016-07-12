@@ -2,12 +2,12 @@ const bindings = require('./build/Debug/bindings');
 
 const consumer = new bindings.KafkaConsumer();
 consumer.subscribe( [ 'test_dc.resource_change' ]);
-while (true) {
-    const message = consumer.consume(1000);
-    if (message.err() === 0) {
-        console.log('Got message: ' + message.payload().toString());
-    } else {
-        console.log(message.errStr());
-    }
-    global.gc();
+
+function get() {
+    consumer.consume(function (result) {
+        console.log(result.errStr());
+        global.gc();
+    });
+    //setTimeout(get, 1000);
 }
+get();

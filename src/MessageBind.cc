@@ -38,9 +38,7 @@ NAN_METHOD(MessageBind::New) {
 
 Local<Object> MessageBind::FromImpl(RdKafka::Message* impl) {
     int argc = 1;
-    Local<Value> argv[] = {
-        External::New(Isolate::GetCurrent(), impl)
-    };
+    Local<Value> argv[] = { External::New(Isolate::GetCurrent(), impl) };
     return Nan::NewInstance(Nan::New(MessageBind::constructor), argc, argv).ToLocalChecked();
 }
 
