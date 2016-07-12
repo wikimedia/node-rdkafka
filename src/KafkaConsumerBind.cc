@@ -38,7 +38,7 @@ KafkaConsumerBind::KafkaConsumerBind() {
     // TODO: Handle configuration and errors
     std::string errstr;
     RdKafka::Conf *conf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
-    if (conf->set("group.id", "test_test_test1", errstr) != RdKafka::Conf::CONF_OK) {
+    if (conf->set("group.id", "test_test_test4", errstr) != RdKafka::Conf::CONF_OK) {
         Nan::ThrowError(errstr.c_str());
     }
     if (conf->set("metadata.broker.list", "127.0.0.1:9092", errstr) != RdKafka::Conf::CONF_OK) {
@@ -52,7 +52,9 @@ KafkaConsumerBind::KafkaConsumerBind() {
     }
 }
 
-KafkaConsumerBind::~KafkaConsumerBind() {};
+KafkaConsumerBind::~KafkaConsumerBind() {
+    delete this->impl;
+};
 
 NAN_METHOD(KafkaConsumerBind::Consume) {
     REQUIRE_ARGUMENTS(1);

@@ -2,7 +2,7 @@
 
 using namespace v8;
 
-Nan::Persistent<FunctionTemplate> TopicBind::constructor_template;
+Nan::Persistent<Function> TopicBind::constructor;
 
 NAN_MODULE_INIT(TopicBind::Init) {
     Nan::HandleScope scope;
@@ -13,7 +13,8 @@ NAN_MODULE_INIT(TopicBind::Init) {
 
     Nan::SetPrototypeMethod(t, "name", Name);
 
-    constructor_template.Reset(t);
+    constructor.Reset(t->GetFunction());
+
     Nan::Set(target, Nan::New("Topic").ToLocalChecked(),
         Nan::GetFunction(t).ToLocalChecked());
 }
@@ -30,7 +31,9 @@ NAN_METHOD(TopicBind::New) {
 }
 
 TopicBind::TopicBind() {};
-TopicBind::~TopicBind() {};
+TopicBind::~TopicBind() {
+    delete this->impl;
+};
 
 
 NAN_METHOD(TopicBind::Name) {

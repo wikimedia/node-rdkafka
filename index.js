@@ -1,4 +1,4 @@
-const bindings = require('./build/Release/bindings');
+const bindings = require('./build/Debug/bindings');
 
 const consumer = new bindings.KafkaConsumer();
 consumer.subscribe( [ 'test_dc.resource_change' ]);
@@ -9,4 +9,5 @@ while (true) {
     } else {
         console.log(message.errStr());
     }
+    global.gc();
 }

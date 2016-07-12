@@ -61,7 +61,9 @@ TopicPartitionBind::TopicPartitionBind(RdKafka::TopicPartition* impl) {
     this->impl = impl;
 }
 
-TopicPartitionBind::~TopicPartitionBind() {};
+TopicPartitionBind::~TopicPartitionBind() {
+    delete this->impl;
+};
 
 NAN_METHOD(TopicPartitionBind::Topic) {
     TopicPartitionBind* obj = ObjectWrap::Unwrap<TopicPartitionBind>(info.Holder());

@@ -47,7 +47,9 @@ Local<Object> MessageBind::FromImpl(RdKafka::Message* impl) {
 MessageBind::MessageBind(RdKafka::Message* impl) {
     this->impl = impl;
 };
-MessageBind::~MessageBind() {};
+MessageBind::~MessageBind() {
+    delete this->impl;
+};
 
 NAN_METHOD(MessageBind::ErrStr) {
    MessageBind* obj = ObjectWrap::Unwrap<MessageBind>(info.Holder());
@@ -61,5 +63,5 @@ NAN_METHOD(MessageBind::Err) {
 
 NAN_METHOD(MessageBind::Payload) {
     MessageBind* obj = ObjectWrap::Unwrap<MessageBind>(info.Holder());
-    info.GetReturnValue().Set(Nan::NewBuffer((char*) obj->impl->payload(), (uint32_t) obj->impl->len()).ToLocalChecked());
+    info.GetReturnValue().Set(Nan::CopyBuffer((char*) obj->impl->payload(), (uint32_t) obj->impl->len()).ToLocalChecked());
 }
