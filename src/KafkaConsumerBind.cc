@@ -38,7 +38,7 @@ KafkaConsumerBind::KafkaConsumerBind() {
     // TODO: Handle configuration and errors
     std::string errstr;
     RdKafka::Conf *conf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
-    if (conf->set("group.id", "test_test_test11", errstr) != RdKafka::Conf::CONF_OK) {
+    if (conf->set("group.id", "atest_test_test3", errstr) != RdKafka::Conf::CONF_OK) {
         Nan::ThrowError(errstr.c_str());
     }
     if (conf->set("metadata.broker.list", "127.0.0.1:9092", errstr) != RdKafka::Conf::CONF_OK) {
@@ -99,8 +99,16 @@ void KafkaConsumerBind::ConsumerLoop(void* context) {
 
         for(std::vector<Consumption*>::iterator it = consumerWork.begin(); it != consumerWork.end(); ++it) {
             Consumption* consumption = *it;
+
             // TODO: Fugire out shutdown
-            consumption->message = consumerBind->impl->consume(-1);
+            RdKafka::Message* message = consumerBind->impl->consume(-1);
+            while (message->err() == RdKafka::ErrorCode::ERR__PARTITION_EOF) {
+                // This 'error' is thrown when there's no more messages in the queue to consume.
+                // It doesn't make any sense, thus ignore it.
+                delete message;
+                message = consumerBind->impl->consume(-1);
+            }
+            consumption->message = message;
             consumption->finishSignal.data = (void*) consumption;
             uv_async_send(&consumption->finishSignal);
         }
@@ -115,8 +123,16 @@ void KafkaConsumerBind::ConsumerCallback(uv_async_t* handle) {
     HandleScope handleScope(isolate);
     Consumption* result = static_cast<Consumption*> (handle->data);
 
-    Local<Value> argv[] = { MessageBind::FromImpl(result->message) };
     Local<Function> jsCallback = Nan::New(*result->callback);
-    Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 1, argv);
+    if (result->message->err() == RdKafka::ErrorCode::ERR_NO_ERROR) {
+        Local<Value> argv[] = { Nan::Undefined(), MessageBind::FromImpl(result->message) };
+        Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
+    } else {
+        // Got at error, return it as the first callback arg
+        Local<Object> error = Nan::Error(result->message->errstr().c_str()).As<Object>();
+        error->Set(Nan::New("code").ToLocalChecked(), Nan::New(result->message->err()));
+        Local<Value> argv[] = { error.As<Value>() };
+        Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 1, argv);
+    }
     delete result;
 }
