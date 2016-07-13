@@ -32,6 +32,8 @@ class KafkaConsumerBind : public Nan::ObjectWrap {
         static NAN_METHOD(Consume);
         // void subscribe(topics[]);
         static NAN_METHOD(Subscribe);
+        // void commit(TopicPartition[]);
+        static NAN_METHOD(Commit);
 
         RdKafka::KafkaConsumer* impl;
     private:

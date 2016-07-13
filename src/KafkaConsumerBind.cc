@@ -1,4 +1,6 @@
 #include "KafkaConsumerBind.h"
+
+#include "TopicPartitionBind.h"
 #include "MessageBind.h"
 #include "ConfHelper.h"
 #include "macros.h"
@@ -17,6 +19,7 @@ NAN_MODULE_INIT(KafkaConsumerBind::Init) {
     // Register all prototype methods
     Nan::SetPrototypeMethod(t, "consume", Consume);
     Nan::SetPrototypeMethod(t, "subscribe", Subscribe);
+    Nan::SetPrototypeMethod(t, "commit", Commit);
 
     constructor.Reset(t->GetFunction());
 
@@ -86,6 +89,27 @@ NAN_METHOD(KafkaConsumerBind::Subscribe) {
     obj->impl->subscribe( topics );
     // TODO: Error handling
 };
+
+// TODO: Make it take the callbacks
+NAN_METHOD(KafkaConsumerBind::Commit) {
+    REQUIRE_ARGUMENTS(1);
+
+    KafkaConsumerBind* obj = ObjectWrap::Unwrap<KafkaConsumerBind>(info.Holder());
+
+    if (info[0]->IsArray()) {
+        // TODO: Find a more efficient way to cas the JS array to std::vector
+        Local<Array> jsArray = Local<Array>::Cast(info[0]);
+        std::vector<RdKafka::TopicPartition*> topicPartitions(jsArray->Length());
+        for (int i = 0; i < jsArray->Length(); i++) {
+            TopicPartitionBind* topicPartition = Nan::ObjectWrap::Unwrap<TopicPartitionBind>(Local<Object>::Cast(jsArray->Get(i)));
+            topicPartitions[i] = topicPartition->impl;
+        }
+        obj->impl->commitAsync(topicPartitions);
+    } else {
+        MessageBind* message = Nan::ObjectWrap::Unwrap<MessageBind>(Local<Object>::Cast(info[0]));
+        obj->impl->commitAsync(message->impl);
+    }
+}
 
 
 // Consumer loop
