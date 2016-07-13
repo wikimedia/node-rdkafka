@@ -1,6 +1,12 @@
-const bindings = require('./build/Debug/bindings');
+const bindings = require('./build/Release/bindings');
 
-const consumer = new bindings.KafkaConsumer();
+const consumer = new bindings.KafkaConsumer({
+    "default_topic_conf": {
+        "auto.offset.reset": "smallest",
+    },
+    "group.id": "test_test_test_test5",
+    "metadata.broker.list": "127.0.0.1:9092",
+});
 const producer = new bindings.Producer();
 
 consumer.subscribe( [ 'test_dc.resource_change' ]);
@@ -21,6 +27,13 @@ function get() {
         get();
     });
 }
+get();
+get();
+get();
+get();
+get();
+get();
+get();
 get();
 get();
 get();

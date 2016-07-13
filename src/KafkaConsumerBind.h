@@ -37,8 +37,7 @@ class KafkaConsumerBind : public Nan::ObjectWrap {
     private:
         static NAN_METHOD(New);
 
-        // TODO: take Conf object as the input
-        KafkaConsumerBind();
+        KafkaConsumerBind(RdKafka::Conf* conf);
         ~KafkaConsumerBind();
 
         static void ConsumerLoop(void* context);

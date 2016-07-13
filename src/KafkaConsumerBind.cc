@@ -1,5 +1,6 @@
 #include "KafkaConsumerBind.h"
 #include "MessageBind.h"
+#include "ConfHelper.h"
 #include "macros.h"
 
 using namespace v8;
@@ -21,43 +22,27 @@ NAN_MODULE_INIT(KafkaConsumerBind::Init) {
 
     Nan::Set(target, Nan::New("KafkaConsumer").ToLocalChecked(),
         Nan::GetFunction(t).ToLocalChecked());
-}
+};
 
 NAN_METHOD(KafkaConsumerBind::New) {
     if (!info.IsConstructCall()) {
         return Nan::ThrowError("Non-constructor invocation not supported");
     }
 
-    KafkaConsumerBind* obj = new KafkaConsumerBind();
+    REQUIRE_ARGUMENTS(1);
+    REQUIRE_ARGUMENT_OBJECT(0, jsConf);
+
+    KafkaConsumerBind* obj = new KafkaConsumerBind(ConfHelper::CreateConfig(jsConf));
 
     obj->Wrap(info.This());
     info.GetReturnValue().Set(info.This());
-}
+};
 
-KafkaConsumerBind::KafkaConsumerBind() {
-    // TODO: Handle configuration and errors
+KafkaConsumerBind::KafkaConsumerBind(RdKafka::Conf* conf) {
     std::string errstr;
-
-    RdKafka::Conf *tconf = RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC);
-    if (tconf->set("auto.offset.reset", "smallest", errstr) != RdKafka::Conf::CONF_OK) {
-        Nan::ThrowError(errstr.c_str());
-    };
-
-    RdKafka::Conf *conf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
-    if (conf->set("group.id", "dtest_test_test8", errstr) != RdKafka::Conf::CONF_OK) {
-        Nan::ThrowError(errstr.c_str());
-    }
-    if (conf->set("metadata.broker.list", "127.0.0.1:9092", errstr) != RdKafka::Conf::CONF_OK) {
-        Nan::ThrowError(errstr.c_str());
-    };
-    if (conf->set("fetch.wait.max.ms", "0", errstr) != RdKafka::Conf::CONF_OK) {
-        Nan::ThrowError(errstr.c_str());
-    };
-    if (conf->set("default_topic_conf", tconf, errstr) != RdKafka::Conf::CONF_OK) {
-        Nan::ThrowError(errstr.c_str());
-    };
-
     this->impl = RdKafka::KafkaConsumer::create(conf, errstr);
+    delete conf;
+
     // TODO: Proper Error handling
     if (!this->impl) {
         Nan::ThrowError(errstr.c_str());
@@ -67,7 +52,7 @@ KafkaConsumerBind::KafkaConsumerBind() {
     uv_async_init(uv_default_loop(), &this->resultNotifier, &KafkaConsumerBind::ConsumerCallback);
     this->resultNotifier.data = this;
     uv_thread_create(&this->consumerThread, KafkaConsumerBind::ConsumerLoop, this);
-}
+};
 
 KafkaConsumerBind::~KafkaConsumerBind() {
     delete this->impl;
@@ -85,7 +70,7 @@ NAN_METHOD(KafkaConsumerBind::Consume) {
     obj->consumeRequestQueue->pushJob(new Nan::Persistent<Function>(jsCallback));
 
     info.GetReturnValue().Set(Nan::Undefined());
-}
+};
 
 NAN_METHOD(KafkaConsumerBind::Subscribe) {
     REQUIRE_ARGUMENTS(1);
@@ -100,7 +85,7 @@ NAN_METHOD(KafkaConsumerBind::Subscribe) {
     KafkaConsumerBind* obj = ObjectWrap::Unwrap<KafkaConsumerBind>(info.Holder());
     obj->impl->subscribe( topics );
     // TODO: Error handling
-}
+};
 
 
 // Consumer loop
@@ -128,10 +113,12 @@ void KafkaConsumerBind::ConsumerLoop(void* context) {
         delete consumerWork;
         uv_async_send(&consumerBind->resultNotifier);
     }
-}
+};
 
-// TODO: then callback might be executed not once/not executed etc.
-// Message consumed callback
+// Message consumed callback.
+// The uv_async_t is notified after each message consumption, but libuv might coerce the callback
+// execution.
+// Called on event loop thread.
 void KafkaConsumerBind::ConsumerCallback(uv_async_t* handle) {
     Isolate* isolate = Isolate::GetCurrent();
     HandleScope handleScope(isolate);
@@ -142,16 +129,16 @@ void KafkaConsumerBind::ConsumerCallback(uv_async_t* handle) {
         ConsumeResult* result = *it;
         Local<Function> jsCallback = Nan::New(*result->callback);
         if (result->message->err() == RdKafka::ErrorCode::ERR_NO_ERROR) {
-            Local<Value> argv[] = { Nan::Undefined(), MessageBind::FromImpl(result->message) };
+            Local<Value> argv[] = { Nan::Null(), MessageBind::FromImpl(result->message) };
             Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
         } else {
             // Got at error, return it as the first callback arg
             Local<Object> error = Nan::Error(result->message->errstr().c_str()).As<Object>();
             error->Set(Nan::New("code").ToLocalChecked(), Nan::New(result->message->err()));
-            Local<Value> argv[] = { error.As<Value>() };
-            Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 1, argv);
+            Local<Value> argv[] = { error.As<Value>(), Nan::Null() };
+            Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
         }
         delete result;
     }
     delete results;
-}
+};
