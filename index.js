@@ -1,41 +1,63 @@
+const Promise = require('bluebird');
 const bindings = require('./build/Release/bindings');
 
-const consumer = new bindings.KafkaConsumer({
-    "default_topic_conf": {
-        "auto.offset.reset": "smallest",
-    },
-    "group.id": "test_test_test_test5",
-    "metadata.broker.list": "127.0.0.1:9092",
-});
-const producer = new bindings.Producer();
+/**
+ * Message returned by the KafkaConsumer. The JS object wraps the native C++ object
+ * returned by librdkafka, so every property read is actually transferred to a C++ object.
+ *
+ * It's mostly important when reading the payload, since the actual payload Buffer is copied
+ * every time the payload is requested.
+ *
+ * @typedef Message
+ * @public
+ * @type Object
+ * @property {int} err the error code if there was an error
+ * @property {string} errStr the string describing the error
+ * @property {string} topicName the name of the topic this message belonged to
+ * @property {Number} partition the number of a partition which this message belonged to
+ * @property {Buffer} payload the payload of the message
+ * @property {string|undefined} key the key of the message if it's defined
+ * @property {Object|undefined} timestamp the message timestamp if it's available
+ */
 
-consumer.subscribe( [ 'test_dc.resource_change' ]);
-var num = 0;
-var time;
+/**
+ *
+ */
+class KafkaConsumer {
+    constructor(conf) {
+        this.impl = new bindings.KafkaConsumer(conf);
+    }
 
-function get() {
-    consumer.consume(function (error, result) {
-        time = time || new Date().getTime();
-        if (error) {
-            console.log(error + ' ' + error.code);
-        } else {
-            num++;
-            if (num % 100 === 0) {
-                console.log(num / ((new Date() - time) / 1000));
-            }
-        }
-        get();
-    });
+    subscribe(topics) {
+        return this.impl.subscribe(topics);
+    }
+
+    /**
+     * Consumes a single message from the queue.
+     *
+     * @returns {Promise<Message>} a promise that resolves to a next message in the queue
+     */
+    consume() {
+        return new Promise((resolve, reject) => {
+            this.impl.consume((error, value) => {
+                if (error) {
+                    reject(error);
+                }
+                resolve(value);
+            });
+        });
+    }
 }
-get();
-get();
-get();
-get();
-get();
-get();
-get();
-get();
-get();
-get();
-get();
-get();
+
+class Producer {
+    constructor(conf) {
+        this.impl = new bindings.Producer(conf);
+    }
+
+    produce(topic, payload) {
+        this.impl.produce(topic, payload);
+    }
+}
+
+module.exports.KafkaConsumer = KafkaConsumer;
+module.exports.Producer = Producer;

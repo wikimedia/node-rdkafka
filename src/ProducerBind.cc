@@ -1,4 +1,5 @@
 #include "ProducerBind.h"
+#include "ConfHelper.h"
 #include "macros.h"
 
 using namespace v8;
@@ -25,25 +26,19 @@ NAN_METHOD(ProducerBind::New) {
         return Nan::ThrowError("Non-constructor invocation not supported");
     }
 
-    // TODO: handle configuration
-    ProducerBind* obj = new ProducerBind();
+    REQUIRE_ARGUMENTS(1);
+    REQUIRE_ARGUMENT_OBJECT(0, jsConf);
+
+    ProducerBind* obj = new ProducerBind(ConfHelper::CreateConfig(jsConf));
     obj->Wrap(info.This());
 
     info.GetReturnValue().Set(info.This());
 }
 
-ProducerBind::ProducerBind() {
+ProducerBind::ProducerBind(RdKafka::Conf* conf) {
     std::string errstr;
-
-    RdKafka::Conf *conf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
-    if (conf->set("metadata.broker.list", "127.0.0.1:9092", errstr) != RdKafka::Conf::CONF_OK) {
-        Nan::ThrowError(errstr.c_str());
-    };
-     if (conf->set("queue.buffering.max.messages", "1", errstr) != RdKafka::Conf::CONF_OK) {
-        Nan::ThrowError(errstr.c_str());
-    };
-
     this->impl = RdKafka::Producer::create(conf, errstr);
+    delete conf;
     // TODO: Proper Error handling
     if (!this->impl) {
         Nan::ThrowError(errstr.c_str());

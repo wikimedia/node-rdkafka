@@ -13,15 +13,14 @@ class ProducerBind : public Nan::ObjectWrap {
         static Nan::Persistent<Function> constructor;
         static NAN_MODULE_INIT(Init);
 
-        // void produce()
+        // void produce(topic, payload)
         static NAN_METHOD(Produce);
 
         RdKafka::Producer* impl;
     private:
         static NAN_METHOD(New);
 
-        // TODO: take Conf object as the input
-        ProducerBind();
+        ProducerBind(RdKafka::Conf* conf);
         ~ProducerBind();
 };
 

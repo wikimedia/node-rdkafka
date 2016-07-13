@@ -9,6 +9,7 @@
   "author": "Petr Pchelko <ppchelko@wikimedia.org>",
   "license": "Apache-2.0",
   "dependencies": {
-    "nan": "^2.3.5"
+    "nan": "^2.3.5",
+    "bluebird": "^3.4.1"
   }
 }
