@@ -11,23 +11,16 @@
 
 using namespace v8;
 
-// TODO: make it thread safe
-class Consumption {
+class ConsumeResult {
     public:
-        Nan::Persistent<Function>* callback;
-        uv_async_t finishSignal;
-        RdKafka::Message* message;
-
-        Consumption(Local<Function> callback, uv_async_cb finishCallback) {
-            this->callback = new Nan::Persistent<Function>(callback);
-            uv_async_init(uv_default_loop(), &this->finishSignal, finishCallback);
-        }
-
-        ~Consumption() {
+        ConsumeResult(Nan::Persistent<Function>* c, RdKafka::Message* m) : callback(c), message(m) {}
+        ~ConsumeResult() {
             this->callback->Reset();
             delete this->callback;
-            uv_close((uv_handle_t*) &this->finishSignal, NULL);
+            // The message should not be deleted here since it's passed to JS and handled by it's GC
         }
+        Nan::Persistent<Function>* callback;
+        RdKafka::Message* message;
 };
 
 class KafkaConsumerBind : public Nan::ObjectWrap {
@@ -52,7 +45,9 @@ class KafkaConsumerBind : public Nan::ObjectWrap {
         static void ConsumerCallback(uv_async_t* handle);
         uv_thread_t consumerThread;
 
-        JobQueue<Consumption>* consumeRequestQueue;
+        uv_async_t resultNotifier;
+
+        JobQueue<Nan::Persistent<Function>, ConsumeResult>* consumeRequestQueue;
 };
 
 #endif

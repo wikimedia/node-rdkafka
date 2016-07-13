@@ -44,7 +44,7 @@ KafkaConsumerBind::KafkaConsumerBind() {
     };
 
     RdKafka::Conf *conf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
-    if (conf->set("group.id", "atest_test_test9", errstr) != RdKafka::Conf::CONF_OK) {
+    if (conf->set("group.id", "dtest_test_test8", errstr) != RdKafka::Conf::CONF_OK) {
         Nan::ThrowError(errstr.c_str());
     }
     if (conf->set("metadata.broker.list", "127.0.0.1:9092", errstr) != RdKafka::Conf::CONF_OK) {
@@ -63,13 +63,16 @@ KafkaConsumerBind::KafkaConsumerBind() {
         Nan::ThrowError(errstr.c_str());
     }
 
-    this->consumeRequestQueue = new JobQueue<Consumption>();
+    this->consumeRequestQueue = new JobQueue<Nan::Persistent<Function>, ConsumeResult>();
+    uv_async_init(uv_default_loop(), &this->resultNotifier, &KafkaConsumerBind::ConsumerCallback);
+    this->resultNotifier.data = this;
     uv_thread_create(&this->consumerThread, KafkaConsumerBind::ConsumerLoop, this);
 }
 
 KafkaConsumerBind::~KafkaConsumerBind() {
     delete this->impl;
     delete this->consumeRequestQueue;
+    uv_close((uv_handle_t*) &this->resultNotifier, NULL);
     //must_stop = true; TODO
     //uv_thread_join(&work_thread);
 };
@@ -79,8 +82,7 @@ NAN_METHOD(KafkaConsumerBind::Consume) {
     REQUIRE_ARGUMENT_FUNCTION(0, jsCallback);
 
     KafkaConsumerBind* obj = ObjectWrap::Unwrap<KafkaConsumerBind>(info.Holder());
-    Consumption* consumption = new Consumption(jsCallback, &KafkaConsumerBind::ConsumerCallback);
-    obj->consumeRequestQueue->pushJob(consumption);
+    obj->consumeRequestQueue->pushJob(new Nan::Persistent<Function>(jsCallback));
 
     info.GetReturnValue().Set(Nan::Undefined());
 }
@@ -104,13 +106,12 @@ NAN_METHOD(KafkaConsumerBind::Subscribe) {
 // Consumer loop
 void KafkaConsumerBind::ConsumerLoop(void* context) {
     KafkaConsumerBind* consumerBind = static_cast<KafkaConsumerBind*> (context);
-    std::vector<Consumption*> consumerWork;
     // todo stop it
     while(true) {
-        consumerWork = consumerBind->consumeRequestQueue->pullJobs();
+        std::vector<Nan::Persistent<Function>*>* consumerWork = consumerBind->consumeRequestQueue->pullJobs();
 
-        for(std::vector<Consumption*>::iterator it = consumerWork.begin(); it != consumerWork.end(); ++it) {
-            Consumption* consumption = *it;
+        for(std::vector<Nan::Persistent<Function>*>::iterator it = consumerWork->begin(); it != consumerWork->end(); ++it) {
+            Nan::Persistent<Function>* consumption = *it;
 
             // TODO: Fugire out shutdown
             RdKafka::Message* message = consumerBind->impl->consume(-1);
@@ -120,31 +121,37 @@ void KafkaConsumerBind::ConsumerLoop(void* context) {
                 delete message;
                 message = consumerBind->impl->consume(-1);
             }
-            consumption->message = message;
-            consumption->finishSignal.data = (void*) consumption;
-            uv_async_send(&consumption->finishSignal);
+
+            consumerBind->consumeRequestQueue->pushResult(new ConsumeResult(consumption, message));
         }
 
-        consumerWork.clear();
+        delete consumerWork;
+        uv_async_send(&consumerBind->resultNotifier);
     }
 }
 
+// TODO: then callback might be executed not once/not executed etc.
 // Message consumed callback
 void KafkaConsumerBind::ConsumerCallback(uv_async_t* handle) {
     Isolate* isolate = Isolate::GetCurrent();
     HandleScope handleScope(isolate);
-    Consumption* result = static_cast<Consumption*> (handle->data);
 
-    Local<Function> jsCallback = Nan::New(*result->callback);
-    if (result->message->err() == RdKafka::ErrorCode::ERR_NO_ERROR) {
-        Local<Value> argv[] = { Nan::Undefined(), MessageBind::FromImpl(result->message) };
-        Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
-    } else {
-        // Got at error, return it as the first callback arg
-        Local<Object> error = Nan::Error(result->message->errstr().c_str()).As<Object>();
-        error->Set(Nan::New("code").ToLocalChecked(), Nan::New(result->message->err()));
-        Local<Value> argv[] = { error.As<Value>() };
-        Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 1, argv);
+    KafkaConsumerBind* consumerBind = static_cast<KafkaConsumerBind*> (handle->data);
+    std::vector<ConsumeResult*>* results = consumerBind->consumeRequestQueue->pullResults();
+    for(std::vector<ConsumeResult*>::iterator it = results->begin(); it != results->end(); ++it) {
+        ConsumeResult* result = *it;
+        Local<Function> jsCallback = Nan::New(*result->callback);
+        if (result->message->err() == RdKafka::ErrorCode::ERR_NO_ERROR) {
+            Local<Value> argv[] = { Nan::Undefined(), MessageBind::FromImpl(result->message) };
+            Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
+        } else {
+            // Got at error, return it as the first callback arg
+            Local<Object> error = Nan::Error(result->message->errstr().c_str()).As<Object>();
+            error->Set(Nan::New("code").ToLocalChecked(), Nan::New(result->message->err()));
+            Local<Value> argv[] = { error.As<Value>() };
+            Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 1, argv);
+        }
+        delete result;
     }
-    delete result;
+    delete results;
 }

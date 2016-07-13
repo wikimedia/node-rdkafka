@@ -22,3 +22,7 @@ function get() {
     });
 }
 get();
+get();
+get();
+get();
+get();
