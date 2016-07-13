@@ -13,16 +13,15 @@ class TopicPartitionBind : public Nan::ObjectWrap {
         static Nan::Persistent<Function> constructor;
         static NAN_MODULE_INIT(Init);
 
-        // String topic();
-        static NAN_METHOD(Topic);
-        // int partition();
-        static NAN_METHOD(Partition);
-        // int offset();
-        static NAN_METHOD(Offset);
-        // void setOffset(int offset);
-        static NAN_METHOD(SetOffset);
-        // ErrorCode err();
-        static NAN_METHOD(Err);
+        // String topic;
+        static NAN_GETTER(Topic);
+        // int partition;
+        static NAN_GETTER(Partition);
+        // int offset;
+        static NAN_GETTER(Offset);
+        static NAN_SETTER(SetOffset);
+        // ErrorCode err;
+        static NAN_GETTER(Err);
 
         static Local<Object> FromImpl(RdKafka::TopicPartition* impl);
 

@@ -12,12 +12,11 @@ NAN_MODULE_INIT(TopicPartitionBind::Init) {
     t->InstanceTemplate()->SetInternalFieldCount(1);
     t->SetClassName(Nan::New("TopicPartition").ToLocalChecked());
 
-    // Register all prototype methods
-    Nan::SetPrototypeMethod(t, "topic", Topic);
-    Nan::SetPrototypeMethod(t, "partition", Partition);
-    Nan::SetPrototypeMethod(t, "offset", Offset);
-    Nan::SetPrototypeMethod(t, "setOffset", SetOffset);
-    Nan::SetPrototypeMethod(t, "err", Err);
+    // Register all getters and setters for the properties
+    Nan::SetAccessor(t->InstanceTemplate(), Nan::New("topic").ToLocalChecked(), Topic);
+    Nan::SetAccessor(t->InstanceTemplate(), Nan::New("partition").ToLocalChecked(), Partition);
+    Nan::SetAccessor(t->InstanceTemplate(), Nan::New("offset").ToLocalChecked(), Offset, SetOffset);
+    Nan::SetAccessor(t->InstanceTemplate(), Nan::New("err").ToLocalChecked(), Err);
 
     constructor.Reset(t->GetFunction());
 
@@ -65,30 +64,27 @@ TopicPartitionBind::~TopicPartitionBind() {
     delete this->impl;
 };
 
-NAN_METHOD(TopicPartitionBind::Topic) {
+NAN_GETTER(TopicPartitionBind::Topic) {
     TopicPartitionBind* obj = ObjectWrap::Unwrap<TopicPartitionBind>(info.Holder());
     info.GetReturnValue().Set(Nan::New(obj->impl->topic()).ToLocalChecked());
 }
 
-NAN_METHOD(TopicPartitionBind::Partition) {
+NAN_GETTER(TopicPartitionBind::Partition) {
     TopicPartitionBind* obj = ObjectWrap::Unwrap<TopicPartitionBind>(info.Holder());
     info.GetReturnValue().Set(Nan::New(obj->impl->partition()));
 }
 
-NAN_METHOD(TopicPartitionBind::Offset) {
+NAN_GETTER(TopicPartitionBind::Offset) {
     TopicPartitionBind* obj = ObjectWrap::Unwrap<TopicPartitionBind>(info.Holder());
     info.GetReturnValue().Set(Nan::New<Number,int64_t>(obj->impl->offset()));
 }
 
-NAN_METHOD(TopicPartitionBind::SetOffset) {
-    REQUIRE_ARGUMENTS(1);
-    REQUIRE_ARGUMENT_NUMBER(0, offset);
-
+NAN_SETTER(TopicPartitionBind::SetOffset) {
     TopicPartitionBind* obj = ObjectWrap::Unwrap<TopicPartitionBind>(info.Holder());
-    obj->impl->set_offset((int) offset);
+    obj->impl->set_offset(value->Int32Value());
 }
 
-NAN_METHOD(TopicPartitionBind::Err) {
+NAN_GETTER(TopicPartitionBind::Err) {
     TopicPartitionBind* obj = ObjectWrap::Unwrap<TopicPartitionBind>(info.Holder());
     info.GetReturnValue().Set(Nan::New(obj->impl->err()));
 }
