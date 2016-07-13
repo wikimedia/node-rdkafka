@@ -4,12 +4,16 @@
   "description": "Direct node wrappers over C++ librdkafka API",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "docs": "mkdir -p docs; jsdoc2md ./index.js > ./docs/api.md"
   },
   "author": "Petr Pchelko <ppchelko@wikimedia.org>",
   "license": "Apache-2.0",
   "dependencies": {
     "nan": "^2.3.5",
     "bluebird": "^3.4.1"
+  },
+  "devDependencies": {
+    "jsdoc-to-markdown": "^1.3.6"
   }
 }
