@@ -7,7 +7,7 @@
 
 #include "rdkafkacpp.h"
 
-#include "JobQueue.h"
+#include "Queue.h"
 
 using namespace v8;
 
@@ -48,7 +48,8 @@ class KafkaConsumerBind : public Nan::ObjectWrap {
 
         uv_async_t resultNotifier;
 
-        JobQueue<Nan::Persistent<Function>, ConsumeResult>* consumeRequestQueue;
+        Queue<Nan::Persistent<Function>>* consumeJobQueue;
+        Queue<ConsumeResult>* consumeResultQueue;
 };
 
 #endif

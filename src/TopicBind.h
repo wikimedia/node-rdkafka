@@ -8,6 +8,8 @@
 
 using namespace v8;
 
+// TODO: Figure out if we need this one or not. Depends on the perf of the producer
+// - whether we need to recreate stuff every time or not.
 class TopicBind : public Nan::ObjectWrap {
     public:
         static Nan::Persistent<Function> constructor;

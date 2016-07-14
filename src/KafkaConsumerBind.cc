@@ -13,7 +13,7 @@ NAN_MODULE_INIT(KafkaConsumerBind::Init) {
     Nan::HandleScope scope;
 
     Local<FunctionTemplate> t = Nan::New<FunctionTemplate>(New);
-    t->InstanceTemplate()->SetInternalFieldCount(3);
+    t->InstanceTemplate()->SetInternalFieldCount(3); // TODO: figure out this number
     t->SetClassName(Nan::New("KafkaConsumer").ToLocalChecked());
 
     // Register all prototype methods
@@ -51,7 +51,10 @@ KafkaConsumerBind::KafkaConsumerBind(RdKafka::Conf* conf) {
         Nan::ThrowError(errstr.c_str());
     }
 
-    this->consumeRequestQueue = new JobQueue<Nan::Persistent<Function>, ConsumeResult>();
+    // TODO: make blocking variable a enum
+    this->consumeJobQueue = new Queue<Nan::Persistent<Function>>(true);
+    this->consumeResultQueue = new Queue<ConsumeResult>(false);
+
     uv_async_init(uv_default_loop(), &this->resultNotifier, &KafkaConsumerBind::ConsumerCallback);
     this->resultNotifier.data = this;
     uv_thread_create(&this->consumerThread, KafkaConsumerBind::ConsumerLoop, this);
@@ -59,7 +62,9 @@ KafkaConsumerBind::KafkaConsumerBind(RdKafka::Conf* conf) {
 
 KafkaConsumerBind::~KafkaConsumerBind() {
     delete this->impl;
-    delete this->consumeRequestQueue;
+    delete this->consumeJobQueue;
+    delete this->consumeResultQueue;
+
     uv_close((uv_handle_t*) &this->resultNotifier, NULL);
     //must_stop = true; TODO
     //uv_thread_join(&work_thread);
@@ -70,7 +75,7 @@ NAN_METHOD(KafkaConsumerBind::Consume) {
     REQUIRE_ARGUMENT_FUNCTION(0, jsCallback);
 
     KafkaConsumerBind* obj = ObjectWrap::Unwrap<KafkaConsumerBind>(info.Holder());
-    obj->consumeRequestQueue->pushJob(new Nan::Persistent<Function>(jsCallback));
+    obj->consumeJobQueue->push(new Nan::Persistent<Function>(jsCallback));
 
     info.GetReturnValue().Set(Nan::Undefined());
 };
@@ -117,7 +122,7 @@ void KafkaConsumerBind::ConsumerLoop(void* context) {
     KafkaConsumerBind* consumerBind = static_cast<KafkaConsumerBind*> (context);
     // todo stop it
     while(true) {
-        std::vector<Nan::Persistent<Function>*>* consumerWork = consumerBind->consumeRequestQueue->pullJobs();
+        std::vector<Nan::Persistent<Function>*>* consumerWork = consumerBind->consumeJobQueue->pull();
 
         for(std::vector<Nan::Persistent<Function>*>::iterator it = consumerWork->begin(); it != consumerWork->end(); ++it) {
             Nan::Persistent<Function>* consumption = *it;
@@ -131,7 +136,7 @@ void KafkaConsumerBind::ConsumerLoop(void* context) {
                 message = consumerBind->impl->consume(-1);
             }
 
-            consumerBind->consumeRequestQueue->pushResult(new ConsumeResult(consumption, message));
+            consumerBind->consumeResultQueue->push(new ConsumeResult(consumption, message));
         }
 
         delete consumerWork;
@@ -148,7 +153,7 @@ void KafkaConsumerBind::ConsumerCallback(uv_async_t* handle) {
     HandleScope handleScope(isolate);
 
     KafkaConsumerBind* consumerBind = static_cast<KafkaConsumerBind*> (handle->data);
-    std::vector<ConsumeResult*>* results = consumerBind->consumeRequestQueue->pullResults();
+    std::vector<ConsumeResult*>* results = consumerBind->consumeResultQueue->pull();
     for(std::vector<ConsumeResult*>::iterator it = results->begin(); it != results->end(); ++it) {
         ConsumeResult* result = *it;
         Local<Function> jsCallback = Nan::New(*result->callback);

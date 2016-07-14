@@ -16,7 +16,7 @@ const bindings = require('./build/Release/bindings');
  * @property {string} errStr the string describing the error
  * @property {string} topicName the name of the topic this message belonged to
  * @property {Number} partition the number of a partition which this message belonged to
- * @property {Buffer} payload the payload of the message
+ * @property {buffer} payload the payload of the message
  * @property {string|undefined} key the key of the message if it's defined
  * @property {Object|undefined} timestamp the message timestamp if it's available
  */

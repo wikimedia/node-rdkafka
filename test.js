@@ -5,22 +5,34 @@ const consumer = new kafka.KafkaConsumer({
     "default_topic_conf": {
         "auto.offset.reset": "smallest"
     },
-    "group.id": "test_test_test_test9",
-    "metadata.broker.list": "127.0.0.1:9092",
-    "enable.auto.commit": "false"
+    "group.id": "something_elseasasdcasdcdasdcc",
+    "metadata.broker.list": "127.0.0.1:9092"
 });
-consumer.subscribe(['test_dc.resource_change1']);
+consumer.subscribe(['test_dc.resource_change5']);
 
+let time;
+let num = 0;
 function get() {
     consumer.consume().then((message) => {
-        consumer.commit(message);
         console.log(message.payload.toString());
+        /*time = time || new Date().getTime();
+        num++;
+        if (num % 100 === 0) {
+            console.log(num * 1000 / (new Date().getTime() - time))
+        }*/
     })
     .then(get);
 }
 get();
 
+
 const producer = new kafka.Producer({
     "metadata.broker.list": "127.0.0.1:9092"
 });
-producer.produce('test_dc.resource_change1', 'TEST_MESSAGE');
+const produce = () => {
+    setTimeout(() => {
+        producer.produce('test_dc.resource_change5', 'TEST_MESSAGE11');
+        produce();
+    }, 1000);
+};
+produce();
