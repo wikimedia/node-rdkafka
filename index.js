@@ -1,6 +1,6 @@
 const ErrorCode = require('./lib/ErrorCode');
 const Promise = require('bluebird');
-const bindings = require('./build/Release/bindings');
+const bindings = require('./build/Debug/bindings');
 
 /**
  * Message returned by the KafkaConsumer. The JS object wraps the native C++ object
@@ -42,9 +42,9 @@ class KafkaConsumer {
         return new Promise((resolve, reject) => {
             this.impl.consume((error, value) => {
                 if (error) {
-                    reject(error);
+                    return reject(error);
                 }
-                resolve(value);
+                return resolve(value);
             });
         });
     }
@@ -66,8 +66,16 @@ class Producer {
         this.impl = new bindings.Producer(conf);
     }
 
+
     produce(topic, payload) {
-        this.impl.produce(topic, payload);
+        return new Promise((resolve, reject) => {
+            this.impl.produce(topic, payload, (error, offset) => {
+                if (error) {
+                    return reject(error);
+                }
+                return resolve(offset);
+            });
+        });
     }
 }
 

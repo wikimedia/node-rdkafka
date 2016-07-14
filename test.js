@@ -30,9 +30,11 @@ const producer = new kafka.Producer({
     "metadata.broker.list": "127.0.0.1:9092"
 });
 const produce = () => {
-    setTimeout(() => {
-        producer.produce('test_dc.resource_change5', 'TEST_MESSAGE11');
-        produce();
-    }, 1000);
+    producer.produce('test_dc.resource_change5', 'TEST_MESSAGE11')
+        .then((offset) => {
+            console.log(offset);
+            global.gc();
+        })
+        .then(produce);
 };
 produce();

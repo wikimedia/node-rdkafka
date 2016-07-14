@@ -48,7 +48,7 @@ ProducerBind::ProducerBind(RdKafka::Conf* conf) {
         Nan::ThrowError(errstr.c_str());
     }
 
-    this->deliverReportQueue = new Queue<RdKafka::Message>(false);
+    this->deliverReportQueue = new Queue<DeliveryReport>(false);
 
     uv_async_init(uv_default_loop(), &this->deliveryNotifier, &ProducerBind::DeliverReportCallback);
     this->deliveryNotifier.data = this;
@@ -66,9 +66,10 @@ ProducerBind::~ProducerBind() {
 NAN_METHOD(ProducerBind::Produce) {
     std::string errstr;
 
-    REQUIRE_ARGUMENTS(2);
+    REQUIRE_ARGUMENTS(3);
     REQUIRE_ARGUMENT_STRING(0, topic_name);
     REQUIRE_ARGUMENT_STRING(1, payload);
+    REQUIRE_ARGUMENT_FUNCTION(2, jsCallback);
 
     ProducerBind* obj = ObjectWrap::Unwrap<ProducerBind>(info.Holder());
 
@@ -78,12 +79,19 @@ NAN_METHOD(ProducerBind::Produce) {
         Nan::ThrowError(errstr.c_str());
     }
 
+    // We've set up a delivery callback here, it will be passed together with the msg_opaque
+    // and the pointer to it will be passed to the dr_cb delivery callback.
+    // Then it will be transferred to the event loop together with the result and called.
+    Nan::Persistent<Function>* persistentCallback = new Nan::Persistent<Function>(jsCallback);
+
     RdKafka::ErrorCode resp = obj->impl->produce(topic, 0,
     			  RdKafka::Producer::RK_MSG_COPY /* TODO: think about it Copy payload */,
     			  const_cast<char *>(payload.c_str()), payload.size(),
-    			  NULL, NULL);
+    			  NULL, (void*) persistentCallback);
+    delete topic;
 
     if (resp != RdKafka::ErrorCode::ERR_NO_ERROR) {
+        // TODO:
         printf(" %d ", resp);
     }
     info.GetReturnValue().Set(Nan::Undefined());
@@ -92,12 +100,12 @@ NAN_METHOD(ProducerBind::Produce) {
 // Callback from librdkafka that's executed when producing is done
 // This is called NOT ON THE EVENT THREAD
 void ProducerBind::dr_cb(RdKafka::Message &message) {
-    // TODO: send back the pointers to the actual payload, not the complete message
-    printf("RECEIVE %p\n", message.payload());
-    this->deliverReportQueue->push(&message);
+    this->deliverReportQueue->push(new DeliveryReport(
+        static_cast<Nan::Persistent<Function>*>(message.msg_opaque()),
+        message.offset(),
+        message.err(),
+        message.errstr()));
     uv_async_send(&this->deliveryNotifier);
-    // TODO: set up a map of Message->JSCallback, set up a vector for finished messages,
-    // set up a uv_async_t so that we could notify eventloop when something was delivered and call the JS callback.
 }
 
 // Running in a background thread in order to call impl->poll from time to time.
@@ -119,26 +127,24 @@ void ProducerBind::DeliverReportCallback(uv_async_t* handle) {
     HandleScope handleScope(isolate);
 
     ProducerBind* producerBind = static_cast<ProducerBind*> (handle->data);
-    std::vector<RdKafka::Message*>* deliveredMessages = producerBind->deliverReportQueue->pull();
+    std::vector<DeliveryReport*>* deliveredMessages = producerBind->deliverReportQueue->pull();
 
 
-    for(std::vector<RdKafka::Message*>::iterator it = deliveredMessages->begin(); it != deliveredMessages->end(); ++it) {
-        RdKafka::Message* message = *it;
-      //  printf("DELIVERED %d\n", message->err()); fflush(stdout);
-        //printf("DELIVERED %d\n", (int) message->offset()); fflush(stdout);
+    for(std::vector<DeliveryReport*>::iterator it = deliveredMessages->begin(); it != deliveredMessages->end(); ++it) {
+        DeliveryReport* report = *it;
 
-        /*Local<Function> jsCallback = Nan::New(*result->callback);
-        if (result->message->err() == RdKafka::ErrorCode::ERR_NO_ERROR) {
-            Local<Value> argv[] = { Nan::Null(), MessageBind::FromImpl(result->message) };
+        Local<Function> jsCallback = Nan::New(*report->callback);
+        if (report->err == RdKafka::ErrorCode::ERR_NO_ERROR) {
+            Local<Value> argv[] = {  Nan::Null(), Nan::New((uint32_t) report->offset) };
             Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
         } else {
             // Got at error, return it as the first callback arg
-            Local<Object> error = Nan::Error(result->message->errstr().c_str()).As<Object>();
-            error->Set(Nan::New("code").ToLocalChecked(), Nan::New(result->message->err()));
+            Local<Object> error = Nan::Error(report->errStr.c_str()).As<Object>();
+            error->Set(Nan::New("code").ToLocalChecked(), Nan::New(report->err));
             Local<Value> argv[] = { error.As<Value>(), Nan::Null() };
             Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
-        }*/
-        // Don't delete the Message since here we're not the owners of it, it will be handled by librdkafka
+        }
+        delete report;
     }
     delete deliveredMessages;
 };

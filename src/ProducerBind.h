@@ -10,6 +10,22 @@
 
 using namespace v8;
 
+class DeliveryReport {
+    public:
+        DeliveryReport(Nan::Persistent<Function>* c,
+            int64_t off,
+            RdKafka::ErrorCode er,
+            std::string erStr) : callback(c), offset(off), err(er), errStr(erStr) {}
+        ~DeliveryReport() {
+            this->callback->Reset();
+            delete this->callback;
+        }
+        Nan::Persistent<Function>* callback;
+        int64_t offset;
+        RdKafka::ErrorCode err;
+        std::string errStr;
+};
+
 class ProducerBind : public Nan::ObjectWrap, public RdKafka::DeliveryReportCb {
     public:
         static Nan::Persistent<Function> constructor;
@@ -27,7 +43,7 @@ class ProducerBind : public Nan::ObjectWrap, public RdKafka::DeliveryReportCb {
         ProducerBind(RdKafka::Conf* conf);
         ~ProducerBind();
 
-        Queue<RdKafka::Message>* deliverReportQueue;
+        Queue<DeliveryReport>* deliverReportQueue;
         uv_async_t deliveryNotifier;
         uv_thread_t pollingThread;
 
