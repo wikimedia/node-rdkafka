@@ -26,15 +26,26 @@ function get() {
 get();
 
 
-const producer = new kafka.Producer({
+const producer1 = new kafka.Producer({
     "metadata.broker.list": "127.0.0.1:9092"
 });
-const produce = () => {
-    producer.produce('test_dc.resource_change5', 'TEST_MESSAGE11')
+const produce1 = () => {
+    producer1.produce('test_dc.resource_change5', 'TEST_MESSAGE11')
         .then((offset) => {
             console.log(offset);
-            global.gc();
         })
-        .then(produce);
+        .then(produce1);
 };
-produce();
+produce1();
+
+const producer2 = new kafka.Producer({
+    "metadata.broker.list": "127.0.0.1:9092"
+});
+const produce2 = () => {
+    producer2.produce('test_dc.resource_change5', 'TEST_MESSAGE12')
+    .then((offset) => {
+        console.log(offset);
+    })
+    .then(produce2);
+};
+produce2();

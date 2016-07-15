@@ -91,8 +91,12 @@ NAN_METHOD(KafkaConsumerBind::Subscribe) {
     }
 
     KafkaConsumerBind* obj = ObjectWrap::Unwrap<KafkaConsumerBind>(info.Holder());
-    obj->impl->subscribe( topics );
+    RdKafka::ErrorCode err = obj->impl->subscribe( topics );
     // TODO: Error handling
+    if (err != RdKafka::ErrorCode::ERR_NO_ERROR) {
+            // TODO:
+        printf("ERROR %d \n", err); fflush(stdout);
+    }
 };
 
 // TODO: Make it take the callbacks

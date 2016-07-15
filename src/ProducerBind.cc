@@ -94,6 +94,8 @@ NAN_METHOD(ProducerBind::Produce) {
         // TODO:
         printf(" %d ", resp);
     }
+    obj->impl->poll(0);
+
     info.GetReturnValue().Set(Nan::Undefined());
 }
 
