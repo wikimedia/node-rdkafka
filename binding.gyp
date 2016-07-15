@@ -7,23 +7,23 @@
       ],
       "sources": [ "<!@(ls -1 src/*.cc)", ],
       "include_dirs": [
-            "<!(node -e \"require('nan')\")",
-            "deps/librdkafka/src-cpp"
+        "<!(node -e \"require('nan')\")",
+        "deps/librdkafka/src-cpp"
       ],
       'conditions': [
-        [ 'OS=="mac"', {
+        [ 'OS=="mac"',
+          {
             'xcode_settings': {
               'MACOSX_DEPLOYMENT_TARGET': '10.11',
-              'OTHER_CFLAGS' : ['-Wall', '-Wno-sign-compare', '-Wno-missing-field-initializers'],
+              'OTHER_CFLAGS' : ['-Wall', '-Wno-sign-compare', '-Wno-missing-field-initializers']
             },
-            'libraries' : ['-lz -lrdkafka -lrdkafka++']
+            'libraries' : ['-lz']
           }
         ],
-        [
-          'OS=="linux"',
+        [ 'OS=="linux"',
           {
             'cflags': ['-Wall', '-Wno-sign-compare', '-Wno-missing-field-initializers'],
-            'libraries' : ['-lz -lrdkafka -lrdkafka++']
+            'libraries' : ['-lz']
           }
         ]
       ]
@@ -41,6 +41,7 @@
           ],
           'outputs': [
             'deps/librdkafka/config.h',
+            'deps/librdkafka/Makefile.config',
           ],
           'action': ['eval', 'cd deps/librdkafka && ./configure'],
         },
@@ -53,17 +54,40 @@
       'dependencies': [
         'librdkafka_config_h',
       ],
+
+      'conditions': [
+        [ 'OS=="mac"',
+          {
+            'variables' : {
+              'OUTPUTS': [
+                'deps/librdkafka/src/librdkafka.1.dylib',
+                'deps/librdkafka/src-cpp/librdkafka++.dylib'
+              ],
+            },
+          },
+        ],
+        [ 'OS=="linux"',
+          {
+            'variables' : {
+              'OUTPUTS': [
+                'deps/librdkafka/src/librdkafka.so',
+                'deps/librdkafka/src-cpp/librdkafka++.so',
+              ],
+            }
+          }
+        ]
+      ],
+
       "actions": [
         {
           'action_name': 'make_librdkafka',
           'message': 'building librdkafka...',
           'inputs': [
-            'deps/librdkafka/Makefile',
+            'deps/librdkafka/config.h',
+            'deps/librdkafka/config.cache',
+            'deps/librdkafka/Makefile.config',
           ],
-          'outputs': [
-            'deps/librdkafka/src/librdkafka.so',
-            'deps/librdkafka/src-cpp/librdkafka++.so',
-          ],
+          'outputs': [ '<@(OUTPUTS)' ],
           'action': ['eval', 'cd deps/librdkafka && make'],
         },
       ],
