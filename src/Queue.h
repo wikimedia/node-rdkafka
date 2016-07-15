@@ -8,6 +8,7 @@ template <class CONTENT_TYPE> class Queue {
     public:
         Queue(bool isBlocking) {
             blocking = isBlocking;
+            running = true;
             this->contentVector = new std::vector<CONTENT_TYPE*>();
             uv_mutex_init(&this->mutex);
             uv_cond_init(&this->cond);
@@ -33,7 +34,10 @@ template <class CONTENT_TYPE> class Queue {
             {
                 if (this->blocking) {
                     while(this->contentVector->size() == 0) {
-                        uv_cond_wait(&this->cond, &this->mutex);
+                        uv_cond_timedwait(&this->cond, &this->mutex, 500);
+                        if (!this->running) {
+                            return NULL;
+                        }
                     }
                 }
 
@@ -44,6 +48,12 @@ template <class CONTENT_TYPE> class Queue {
             uv_mutex_unlock(&this->mutex);
             return result;
         }
+
+        void stop() {
+            uv_mutex_lock(&this->mutex);
+            this->running = false;
+            uv_mutex_unlock(&this->mutex);
+        }
     private:
         std::vector<CONTENT_TYPE*>* contentVector;
         uv_mutex_t mutex;
@@ -51,6 +61,7 @@ template <class CONTENT_TYPE> class Queue {
 
         // TODO: make it constant
         bool blocking;
+        bool running;
 };
 
 #endif

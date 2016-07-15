@@ -26,7 +26,10 @@
           # .deb packages.
           {
             'libraries': ['-lz', '-lrdkafka', '-lrdkafka++'],
-            'include_dirs': ["/usr/include/librdkafka"],
+            'include_dirs': [
+                "/usr/include/librdkafka",
+                "/usr/local/include/librdkafka"
+            ],
           },
         ],
         [ 'OS=="mac"',

@@ -34,10 +34,13 @@ class KafkaConsumerBind : public Nan::ObjectWrap {
         static NAN_METHOD(Subscribe);
         // void commit(TopicPartition[]);
         static NAN_METHOD(Commit);
+        // void close();
+        static NAN_METHOD(Close);
 
         RdKafka::KafkaConsumer* impl;
     private:
         static NAN_METHOD(New);
+
 
         KafkaConsumerBind(RdKafka::Conf* conf);
         ~KafkaConsumerBind();
@@ -50,6 +53,8 @@ class KafkaConsumerBind : public Nan::ObjectWrap {
 
         Queue<Nan::Persistent<Function>>* consumeJobQueue;
         Queue<ConsumeResult>* consumeResultQueue;
+
+        std::atomic<bool> running;
 };
 
 #endif

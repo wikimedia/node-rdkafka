@@ -1,6 +1,6 @@
 const ErrorCode = require('./lib/ErrorCode');
 const Promise = require('bluebird');
-const bindings = require('./build/Release/bindings');
+const bindings = require('./build/Debug/bindings');
 
 /**
  * Message returned by the KafkaConsumer. The JS object wraps the native C++ object
@@ -58,6 +58,23 @@ class KafkaConsumer {
      */
     commit(commitValues) {
         this.impl.commit(commitValues);
+    }
+
+    /**
+     * Close and shut down the proper.
+     *
+     * This call will block until the following operations are finished:
+     *  - Trigger a local rebalance to void the current assignment
+     *  - Stop consumption for current assignment
+     *  - Commit offsets
+     *  - Leave group
+     *
+     * The maximum blocking time is roughly limited to session.timeout.ms.
+     *
+     * Client application is responsible for calling this method on shutdown.
+     */
+    close() {
+        this.impl.close();
     }
 }
 

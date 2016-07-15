@@ -20,6 +20,7 @@ NAN_MODULE_INIT(KafkaConsumerBind::Init) {
     Nan::SetPrototypeMethod(t, "consume", Consume);
     Nan::SetPrototypeMethod(t, "subscribe", Subscribe);
     Nan::SetPrototypeMethod(t, "commit", Commit);
+    Nan::SetPrototypeMethod(t, "close", Close);
 
     constructor.Reset(t->GetFunction());
 
@@ -41,7 +42,7 @@ NAN_METHOD(KafkaConsumerBind::New) {
     info.GetReturnValue().Set(info.This());
 };
 
-KafkaConsumerBind::KafkaConsumerBind(RdKafka::Conf* conf) {
+KafkaConsumerBind::KafkaConsumerBind(RdKafka::Conf* conf) : running(true) {
     std::string errstr;
     this->impl = RdKafka::KafkaConsumer::create(conf, errstr);
     delete conf;
@@ -64,10 +65,6 @@ KafkaConsumerBind::~KafkaConsumerBind() {
     delete this->impl;
     delete this->consumeJobQueue;
     delete this->consumeResultQueue;
-
-    uv_close((uv_handle_t*) &this->resultNotifier, NULL);
-    //must_stop = true; TODO
-    //uv_thread_join(&work_thread);
 };
 
 NAN_METHOD(KafkaConsumerBind::Consume) {
@@ -92,10 +89,8 @@ NAN_METHOD(KafkaConsumerBind::Subscribe) {
 
     KafkaConsumerBind* obj = ObjectWrap::Unwrap<KafkaConsumerBind>(info.Holder());
     RdKafka::ErrorCode err = obj->impl->subscribe( topics );
-    // TODO: Error handling
     if (err != RdKafka::ErrorCode::ERR_NO_ERROR) {
-            // TODO:
-        printf("ERROR %d \n", err); fflush(stdout);
+        Nan::ThrowError(RdKafka::err2str(err).c_str());
     }
 };
 
@@ -120,24 +115,50 @@ NAN_METHOD(KafkaConsumerBind::Commit) {
     }
 }
 
+NAN_METHOD(KafkaConsumerBind::Close) {
+    printf("1\n"); fflush(stdout);
+    KafkaConsumerBind* obj = ObjectWrap::Unwrap<KafkaConsumerBind>(info.Holder());
+    printf("2\n"); fflush(stdout);
+    obj->running = false;
+    obj->consumeJobQueue->stop();
+    uv_thread_join(&obj->consumerThread);
+    printf("3\n"); fflush(stdout);
+    uv_close((uv_handle_t*) &obj->resultNotifier, NULL);
+    obj->impl->consume(0);
+    RdKafka::ErrorCode err = obj->impl->close();
+    printf("5 %s\n", RdKafka::err2str(err).c_str()); fflush(stdout);
+    if (err != RdKafka::ErrorCode::ERR_NO_ERROR) {
+        Nan::ThrowError(RdKafka::err2str(err).c_str());
+    }
+    printf("6\n"); fflush(stdout);
+}
 
 // Consumer loop
 void KafkaConsumerBind::ConsumerLoop(void* context) {
     KafkaConsumerBind* consumerBind = static_cast<KafkaConsumerBind*> (context);
     // todo stop it
-    while(true) {
+    while(consumerBind->running) {
         std::vector<Nan::Persistent<Function>*>* consumerWork = consumerBind->consumeJobQueue->pull();
 
+        if (!consumerWork) {
+            // Nothing it returned, that means we were stopped.
+            return;
+        }
         for(std::vector<Nan::Persistent<Function>*>::iterator it = consumerWork->begin(); it != consumerWork->end(); ++it) {
             Nan::Persistent<Function>* consumption = *it;
 
             // TODO: Fugire out shutdown
-            RdKafka::Message* message = consumerBind->impl->consume(-1);
-            while (message->err() == RdKafka::ErrorCode::ERR__PARTITION_EOF) {
+            RdKafka::Message* message = consumerBind->impl->consume(500);
+            while (message->err() == RdKafka::ErrorCode::ERR__PARTITION_EOF
+                    || message->err() == RdKafka::ErrorCode::ERR__TIMED_OUT) {
                 // This 'error' is thrown when there's no more messages in the queue to consume.
                 // It doesn't make any sense, thus ignore it.
                 delete message;
-                message = consumerBind->impl->consume(-1);
+                message = consumerBind->impl->consume(500);
+
+                if (!consumerBind->running) {
+                    return;
+                }
             }
 
             consumerBind->consumeResultQueue->push(new ConsumeResult(consumption, message));
