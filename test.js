@@ -5,22 +5,21 @@ const consumer = new kafka.KafkaConsumer({
     "default_topic_conf": {
         "auto.offset.reset": "largest"
     },
-    "group.id": "asdasdccaasdccsdc",
+    "group.id": "asdasdccaasdcasdccsdc",
     "metadata.broker.list": "127.0.0.1:9092",
     "session.timeout.ms": "10000",
-    "enable.auto.commit": "false"
+    "enable.auto.commit": "false",
+    //"debug": "destroy"
 });
 consumer.subscribe(['test_dc.resource_change5']);
 
 let time;
 let num = 0;
 function get() {
-    consumer.consume().then((message) => {
-        console.log(message.payload.toString());
-        if (message.payload.toString() === 'close') {
-            consumer.close();
-            console.log('closed');
-        } else {
+    return consumer.consume().then((message) => {
+        const stuff = message.payload.toString();
+        console.log(stuff);
+        if (stuff !== 'close') {
             return get();
         }
         /*time = time || new Date().getTime();
@@ -31,7 +30,10 @@ function get() {
     })
     .catch((e) => console.log(e));
 }
-get();
+get()
+.then(() => {
+    consumer.close();
+})
 
 
 /*

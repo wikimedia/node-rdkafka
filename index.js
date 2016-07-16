@@ -52,9 +52,8 @@ class KafkaConsumer {
     /**
      * Commits the offest for a specific topic+partition
      *
-     * @param {TopicPartition[]|Message} commitValues two options are supported:
-     *      - An array of TopicPartition objects holding topic+partition+offset combinations
-     *      - A Message object. That must be the message provided by the consume method.
+     * @param {TopicPartition[]} commitValues An array of TopicPartition objects
+     *                           holding topic+partition+offset combinations
      */
     commit(commitValues) {
         this.impl.commit(commitValues);

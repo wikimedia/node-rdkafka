@@ -17,7 +17,7 @@ class ConsumeResult {
         ~ConsumeResult() {
             this->callback->Reset();
             delete this->callback;
-            // The message should not be deleted here since it's passed to JS and handled by it's GC
+            delete this->message;
         }
         Nan::Persistent<Function>* callback;
         RdKafka::Message* message;

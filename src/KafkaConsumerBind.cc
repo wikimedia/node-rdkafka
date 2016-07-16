@@ -1,7 +1,6 @@
 #include "KafkaConsumerBind.h"
 
 #include "TopicPartitionBind.h"
-#include "MessageBind.h"
 #include "ConfHelper.h"
 #include "macros.h"
 
@@ -110,27 +109,21 @@ NAN_METHOD(KafkaConsumerBind::Commit) {
         }
         obj->impl->commitAsync(topicPartitions);
     } else {
-        MessageBind* message = Nan::ObjectWrap::Unwrap<MessageBind>(Local<Object>::Cast(info[0]));
-        obj->impl->commitAsync(message->impl);
+        Nan::ThrowError("Argument 0 must be an array");
     }
 }
 
 NAN_METHOD(KafkaConsumerBind::Close) {
-    printf("1\n"); fflush(stdout);
     KafkaConsumerBind* obj = ObjectWrap::Unwrap<KafkaConsumerBind>(info.Holder());
-    printf("2\n"); fflush(stdout);
     obj->running = false;
     obj->consumeJobQueue->stop();
     uv_thread_join(&obj->consumerThread);
-    printf("3\n"); fflush(stdout);
     uv_close((uv_handle_t*) &obj->resultNotifier, NULL);
-    obj->impl->consume(0);
+
     RdKafka::ErrorCode err = obj->impl->close();
-    printf("5 %s\n", RdKafka::err2str(err).c_str()); fflush(stdout);
     if (err != RdKafka::ErrorCode::ERR_NO_ERROR) {
         Nan::ThrowError(RdKafka::err2str(err).c_str());
     }
-    printf("6\n"); fflush(stdout);
 }
 
 // Consumer loop
@@ -183,7 +176,25 @@ void KafkaConsumerBind::ConsumerCallback(uv_async_t* handle) {
         ConsumeResult* result = *it;
         Local<Function> jsCallback = Nan::New(*result->callback);
         if (result->message->err() == RdKafka::ErrorCode::ERR_NO_ERROR) {
-            Local<Value> argv[] = { Nan::Null(), MessageBind::FromImpl(result->message) };
+            // Construct the message JS object
+            Local<Object> jsMessage = Nan::New<Object>();
+            jsMessage->Set(Nan::New("errStr").ToLocalChecked(),
+                Nan::New(result->message->errstr()).ToLocalChecked());
+            jsMessage->Set(Nan::New("err").ToLocalChecked(),
+                Nan::New(result->message->err()));
+            jsMessage->Set(Nan::New("topicName").ToLocalChecked(),
+                Nan::New(result->message->topic_name()).ToLocalChecked());
+            jsMessage->Set(Nan::New("partition").ToLocalChecked(),
+                Nan::New(result->message->partition()));
+            jsMessage->Set(Nan::New("payload").ToLocalChecked(),
+                Nan::CopyBuffer((char*) result->message->payload(), (uint32_t) result->message->len()).ToLocalChecked());
+            const std::string* key = result->message->key();
+            if (key) {
+                jsMessage->Set(Nan::New("key").ToLocalChecked(), Nan::New(*key).ToLocalChecked());
+            }
+            jsMessage->Set(Nan::New("offset").ToLocalChecked(), Nan::New((double) result->message->offset()));
+
+            Local<Value> argv[] = { Nan::Null(), jsMessage };
             Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
         } else {
             // Got at error, return it as the first callback arg
