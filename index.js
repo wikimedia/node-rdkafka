@@ -93,6 +93,10 @@ class Producer {
             });
         });
     }
+
+    close() {
+        return this.impl.close();
+    }
 }
 
 module.exports.KafkaConsumer = KafkaConsumer;

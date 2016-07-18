@@ -33,6 +33,8 @@ class ProducerBind : public Nan::ObjectWrap, public RdKafka::DeliveryReportCb {
 
         // void produce(topic, payload)
         static NAN_METHOD(Produce);
+        // void close()
+        static NAN_METHOD(Close);
 
         void dr_cb(RdKafka::Message &message);
 
@@ -46,6 +48,8 @@ class ProducerBind : public Nan::ObjectWrap, public RdKafka::DeliveryReportCb {
         Queue<DeliveryReport>* deliverReportQueue;
         uv_async_t deliveryNotifier;
         uv_thread_t pollingThread;
+
+        std::atomic<bool> running;
 
         static void Poller(void* context);
         static void DeliverReportCallback(uv_async_t* handle);

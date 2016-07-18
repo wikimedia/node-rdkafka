@@ -17,6 +17,7 @@ NAN_MODULE_INIT(ProducerBind::Init) {
 
     // Register all prototype methods
     Nan::SetPrototypeMethod(t, "produce", Produce);
+    Nan::SetPrototypeMethod(t, "close", Close);
 
     constructor.Reset(t->GetFunction());
     Nan::Set(target, Nan::New("Producer").ToLocalChecked(),
@@ -37,7 +38,7 @@ NAN_METHOD(ProducerBind::New) {
     info.GetReturnValue().Set(info.This());
 }
 
-ProducerBind::ProducerBind(RdKafka::Conf* conf) {
+ProducerBind::ProducerBind(RdKafka::Conf* conf) : running(true) {
     std::string errstr;
     CONF_SET_PROPERTY(conf, "dr_cb", this);
 
@@ -59,8 +60,6 @@ ProducerBind::ProducerBind(RdKafka::Conf* conf) {
 ProducerBind::~ProducerBind() {
     delete this->impl;
     delete this->deliverReportQueue;
-
-    uv_close((uv_handle_t*) &this->deliveryNotifier, NULL);
 }
 
 NAN_METHOD(ProducerBind::Produce) {
@@ -91,12 +90,18 @@ NAN_METHOD(ProducerBind::Produce) {
     delete topic;
 
     if (resp != RdKafka::ErrorCode::ERR_NO_ERROR) {
-        // TODO:
-        printf(" %d ", resp);
+        Nan::ThrowError(RdKafka::err2str(resp).c_str());
     }
     obj->impl->poll(0);
 
     info.GetReturnValue().Set(Nan::Undefined());
+}
+
+NAN_METHOD(ProducerBind::Close) {
+    ProducerBind* obj = ObjectWrap::Unwrap<ProducerBind>(info.Holder());
+    obj->running = false;
+    uv_thread_join(&obj->pollingThread);
+    uv_close((uv_handle_t*) &obj->deliveryNotifier, NULL);
 }
 
 // Callback from librdkafka that's executed when producing is done
@@ -114,8 +119,7 @@ void ProducerBind::dr_cb(RdKafka::Message &message) {
 // That makes all the delivery callbacks fire, so we can track the delivery of individual messages
 void ProducerBind::Poller(void* context) {
      ProducerBind* producerBind = static_cast<ProducerBind*> (context);
-     // TODO: we need a way to stop this
-     while(true) {
+     while(producerBind->running) {
         producerBind->impl->poll(POLLING_TIMEOUT);
      }
 }

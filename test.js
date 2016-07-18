@@ -1,4 +1,5 @@
 const kafka = require('./index.js');
+const Promise = require('bluebird');
 
 // TODO: make it stringify all properties in JS code for simplicity of the API
 const consumer = new kafka.KafkaConsumer({
@@ -33,10 +34,10 @@ function get() {
 get()
 .then(() => {
     consumer.close();
-})
+});
 
 
-/*
+
 const producer1 = new kafka.Producer({
     "metadata.broker.list": "127.0.0.1:9092"
 });
@@ -45,7 +46,7 @@ const produce1 = () => {
         .then((offset) => {
             console.log(offset);
         })
-        .then(produce1);
+        .then(() => producer1.close());
 };
 produce1();
 
@@ -53,11 +54,10 @@ const producer2 = new kafka.Producer({
     "metadata.broker.list": "127.0.0.1:9092"
 });
 const produce2 = () => {
-    producer2.produce('test_dc.resource_change5', 'TEST_MESSAGE12')
+    producer2.produce('test_dc.resource_change5', 'close')
     .then((offset) => {
         console.log(offset);
     })
-    .then(produce2);
+    .then(() => producer2.close());
 };
 produce2();
-*/
