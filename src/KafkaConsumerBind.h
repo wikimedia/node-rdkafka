@@ -44,6 +44,7 @@ class KafkaConsumerBind : public Nan::ObjectWrap {
 
         KafkaConsumerBind(RdKafka::Conf* conf);
         ~KafkaConsumerBind();
+        RdKafka::ErrorCode doClose();
 
         static void ConsumerLoop(void* context);
         static void ConsumerCallback(uv_async_t* handle);

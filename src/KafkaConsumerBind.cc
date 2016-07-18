@@ -61,6 +61,9 @@ KafkaConsumerBind::KafkaConsumerBind(RdKafka::Conf* conf) : running(true) {
 };
 
 KafkaConsumerBind::~KafkaConsumerBind() {
+    if (this->running) {
+        this->doClose();
+    }
     delete this->impl;
     delete this->consumeJobQueue;
     delete this->consumeResultQueue;
@@ -115,21 +118,28 @@ NAN_METHOD(KafkaConsumerBind::Commit) {
 
 NAN_METHOD(KafkaConsumerBind::Close) {
     KafkaConsumerBind* obj = ObjectWrap::Unwrap<KafkaConsumerBind>(info.Holder());
-    obj->running = false;
-    obj->consumeJobQueue->stop();
-    uv_thread_join(&obj->consumerThread);
-    uv_close((uv_handle_t*) &obj->resultNotifier, NULL);
-
-    RdKafka::ErrorCode err = obj->impl->close();
+    RdKafka::ErrorCode err = obj->doClose();
     if (err != RdKafka::ErrorCode::ERR_NO_ERROR) {
         Nan::ThrowError(RdKafka::err2str(err).c_str());
     }
 }
 
+RdKafka::ErrorCode KafkaConsumerBind::doClose() {
+    if (this->running) {
+        this->running = false;
+        this->consumeJobQueue->stop();
+        uv_thread_join(&this->consumerThread);
+
+        uv_close((uv_handle_t*) &this->resultNotifier, NULL);
+        return this->impl->close();
+    }
+    return RdKafka::ErrorCode::ERR_NO_ERROR;
+}
+
+
 // Consumer loop
 void KafkaConsumerBind::ConsumerLoop(void* context) {
     KafkaConsumerBind* consumerBind = static_cast<KafkaConsumerBind*> (context);
-    // todo stop it
     while(consumerBind->running) {
         std::vector<Nan::Persistent<Function>*>* consumerWork = consumerBind->consumeJobQueue->pull();
 
@@ -139,8 +149,6 @@ void KafkaConsumerBind::ConsumerLoop(void* context) {
         }
         for(std::vector<Nan::Persistent<Function>*>::iterator it = consumerWork->begin(); it != consumerWork->end(); ++it) {
             Nan::Persistent<Function>* consumption = *it;
-
-            // TODO: Fugire out shutdown
             RdKafka::Message* message = consumerBind->impl->consume(500);
             while (message->err() == RdKafka::ErrorCode::ERR__PARTITION_EOF
                     || message->err() == RdKafka::ErrorCode::ERR__TIMED_OUT) {

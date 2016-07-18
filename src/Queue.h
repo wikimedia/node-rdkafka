@@ -14,9 +14,11 @@ template <class CONTENT_TYPE> class Queue {
             uv_cond_init(&this->cond);
         }
         ~Queue() {
-            uv_mutex_destroy(&this->mutex);
             uv_cond_destroy(&this->cond);
-            delete this->contentVector;
+            uv_mutex_destroy(&this->mutex);
+            if (this->contentVector) {
+                delete this->contentVector;
+            }
         }
 
         void push(CONTENT_TYPE* content) {
@@ -36,6 +38,7 @@ template <class CONTENT_TYPE> class Queue {
                     while(this->contentVector->size() == 0) {
                         uv_cond_timedwait(&this->cond, &this->mutex, 500);
                         if (!this->running) {
+                            uv_mutex_unlock(&this->mutex);
                             return NULL;
                         }
                     }

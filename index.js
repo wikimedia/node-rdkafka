@@ -1,6 +1,6 @@
 const ErrorCode = require('./lib/ErrorCode');
 const Promise = require('bluebird');
-const bindings = require('./build/Debug/bindings');
+const bindings = require('./build/Release/bindings');
 
 /**
  * Message returned by the KafkaConsumer. The JS object wraps the native C++ object
