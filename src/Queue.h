@@ -34,9 +34,14 @@ template <class CONTENT_TYPE> class Queue {
             std::vector<CONTENT_TYPE*>* result;
             uv_mutex_lock(&this->mutex);
             {
+                if (!this->running) {
+                    uv_mutex_unlock(&this->mutex);
+                    return NULL;
+                }
+
                 if (this->blocking) {
-                    while(this->contentVector->size() == 0) {
-                        uv_cond_timedwait(&this->cond, &this->mutex, 500);
+                    while(this->contentVector->size() == 0
+                        && uv_cond_timedwait(&this->cond, &this->mutex, 500) != 0) {
                         if (!this->running) {
                             uv_mutex_unlock(&this->mutex);
                             return NULL;

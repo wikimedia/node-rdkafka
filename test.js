@@ -5,10 +5,9 @@ const consumer = new kafka.KafkaConsumer({
     "default_topic_conf": {
         "auto.offset.reset": "largest"
     },
-    "group.id": "asdasdccaasdcasdccsdc",
+    "group.id": "asdasdccasdcaasdcasdcaasdcsdasdcccsdc",
     "metadata.broker.list": "127.0.0.1:9092",
-    "session.timeout.ms": "10000",
-    "enable.auto.commit": "false",
+    "session.timeout.ms": "10000"
     //"debug": "destroy"
 });
 consumer.subscribe(['test_dc.resource_change5']);
@@ -16,28 +15,23 @@ consumer.subscribe(['test_dc.resource_change5']);
 let time;
 let num = 0;
 function get() {
-    const consumer = new kafka.KafkaConsumer({
-        "default_topic_conf": {
-            "auto.offset.reset": "smallest"
-        },
-        "group.id": "asdasdccaasdcasdcasdcasdccsdc",
-        "metadata.broker.list": "127.0.0.1:9092",
-        "session.timeout.ms": "10000",
-        "enable.auto.commit": "false",
-    });
-    consumer.subscribe(['test_dc.resource_change5']);
     return consumer.consume().then((message) => {
         const stuff = message.payload.toString();
-        console.log(stuff);
-        consumer.close();
-        console.log("CLOSE CONSUMER");
-        global.gc();
-        console.log("AFTER GC");
+
+        console.log(stuff, message.offset);
+        const offset = new kafka.TopicPartition(message.topicName, message.partition);
+        offset.offset = message.offset;
+        consumer.commit([offset]);
     })
-    //.then(get);
+    .catch(console.log.bind(console));
 }
 
-get();
+for (let i = 0; i < 100; i++)
+{
+    get();
+}
+
+setTimeout(() => consumer.close(), 5000);
 
 /*const producer1 = new kafka.Producer({
     "metadata.broker.list": "127.0.0.1:9092"

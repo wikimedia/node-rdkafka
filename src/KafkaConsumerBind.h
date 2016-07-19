@@ -13,14 +13,45 @@ using namespace v8;
 
 class ConsumeResult {
     public:
-        ConsumeResult(Nan::Persistent<Function>* c, RdKafka::Message* m) : callback(c), message(m) {}
+        ConsumeResult(Nan::Persistent<Function>* c,
+            void* payload, size_t len,
+            std::string topic, int32_t partition, int64_t offset,
+            RdKafka::ErrorCode err, std::string errStr,
+            const std::string* key) {
+
+            this->callback = c;
+            this->payload = (char*) malloc(len);
+            memcpy(this->payload, payload, len);
+            this->len = (uint32_t) len;
+
+            this->topic = topic;
+            this->partition = partition;
+            this->offset = offset;
+            this->key = key;
+
+            this->err = err;
+            this->errStr = errStr;
+        }
         ~ConsumeResult() {
             this->callback->Reset();
             delete this->callback;
-            delete this->message;
+            if (this->key) {
+                delete this->key;
+            }
+            // Don't delete the payload here - it's passed to the v8 Buffer
+            // without making a copy, so the memory is handled by v8 GC.
         }
         Nan::Persistent<Function>* callback;
-        RdKafka::Message* message;
+        char* payload;
+        uint32_t len;
+
+        std::string topic;
+        int32_t partition;
+        double offset;
+
+        const std::string* key;
+        RdKafka::ErrorCode err;
+        std::string errStr;
 };
 
 class KafkaConsumerBind : public Nan::ObjectWrap {
@@ -45,6 +76,7 @@ class KafkaConsumerBind : public Nan::ObjectWrap {
         KafkaConsumerBind(RdKafka::Conf* conf);
         ~KafkaConsumerBind();
         RdKafka::ErrorCode doClose();
+        static void ResultNotifierClosed(uv_handle_t* handle);
 
         static void ConsumerLoop(void* context);
         static void ConsumerCallback(uv_async_t* handle);

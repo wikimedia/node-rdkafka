@@ -74,7 +74,12 @@ NAN_METHOD(KafkaConsumerBind::Consume) {
     REQUIRE_ARGUMENT_FUNCTION(0, jsCallback);
 
     KafkaConsumerBind* obj = ObjectWrap::Unwrap<KafkaConsumerBind>(info.Holder());
-    obj->consumeJobQueue->push(new Nan::Persistent<Function>(jsCallback));
+
+    if (obj->running) {
+        obj->consumeJobQueue->push(new Nan::Persistent<Function>(jsCallback));
+    } else {
+        // TODO: call a callback?
+    }
 
     info.GetReturnValue().Set(Nan::Undefined());
 };
@@ -130,10 +135,17 @@ RdKafka::ErrorCode KafkaConsumerBind::doClose() {
         this->consumeJobQueue->stop();
         uv_thread_join(&this->consumerThread);
 
-        uv_close((uv_handle_t*) &this->resultNotifier, NULL);
+        this->consumeResultQueue->stop();
+        uv_close((uv_handle_t*) &this->resultNotifier, &KafkaConsumerBind::ResultNotifierClosed);
+
         return this->impl->close();
     }
     return RdKafka::ErrorCode::ERR_NO_ERROR;
+}
+
+void KafkaConsumerBind::ResultNotifierClosed(uv_handle_t* handle) {
+    // TODO KafkaConsumerBind* obj = static_cast<KafkaConsumerBind*> (handle->data);
+    //obj->consumeResultQueue->stop();
 }
 
 
@@ -141,6 +153,7 @@ RdKafka::ErrorCode KafkaConsumerBind::doClose() {
 void KafkaConsumerBind::ConsumerLoop(void* context) {
     KafkaConsumerBind* consumerBind = static_cast<KafkaConsumerBind*> (context);
     while(consumerBind->running) {
+        // TODO: peek one element, not clone the whole thing
         std::vector<Nan::Persistent<Function>*>* consumerWork = consumerBind->consumeJobQueue->pull();
 
         if (!consumerWork) {
@@ -152,21 +165,31 @@ void KafkaConsumerBind::ConsumerLoop(void* context) {
             RdKafka::Message* message = consumerBind->impl->consume(500);
             while (message->err() == RdKafka::ErrorCode::ERR__PARTITION_EOF
                     || message->err() == RdKafka::ErrorCode::ERR__TIMED_OUT) {
-                // This 'error' is thrown when there's no more messages in the queue to consume.
-                // It doesn't make any sense, thus ignore it.
-                delete message;
-                message = consumerBind->impl->consume(500);
 
                 if (!consumerBind->running) {
+                    delete message;
+                    delete consumerWork;
                     return;
                 }
+
+                delete message;
+                message = consumerBind->impl->consume(500);
             }
 
-            consumerBind->consumeResultQueue->push(new ConsumeResult(consumption, message));
-        }
+            if (!consumerBind->running) {
+                delete message;
+                delete consumerWork;
+                return;
+            }
 
+            consumerBind->consumeResultQueue->push(new ConsumeResult(consumption,
+                message->payload(), message->len(),
+                message->topic_name(), message->partition(), message->offset(),
+                message->err(), message->errstr(), message->key()));
+            delete message;
+            uv_async_send(&consumerBind->resultNotifier);
+        }
         delete consumerWork;
-        uv_async_send(&consumerBind->resultNotifier);
     }
 };
 
@@ -180,34 +203,39 @@ void KafkaConsumerBind::ConsumerCallback(uv_async_t* handle) {
 
     KafkaConsumerBind* consumerBind = static_cast<KafkaConsumerBind*> (handle->data);
     std::vector<ConsumeResult*>* results = consumerBind->consumeResultQueue->pull();
+
+    if (!results) {
+        return;
+    }
+
     for(std::vector<ConsumeResult*>::iterator it = results->begin(); it != results->end(); ++it) {
         ConsumeResult* result = *it;
         Local<Function> jsCallback = Nan::New(*result->callback);
-        if (result->message->err() == RdKafka::ErrorCode::ERR_NO_ERROR) {
+        if (result->err == RdKafka::ErrorCode::ERR_NO_ERROR) {
             // Construct the message JS object
             Local<Object> jsMessage = Nan::New<Object>();
             jsMessage->Set(Nan::New("errStr").ToLocalChecked(),
-                Nan::New(result->message->errstr()).ToLocalChecked());
+                Nan::New(result->errStr).ToLocalChecked());
             jsMessage->Set(Nan::New("err").ToLocalChecked(),
-                Nan::New(result->message->err()));
+                Nan::New(result->err));
             jsMessage->Set(Nan::New("topicName").ToLocalChecked(),
-                Nan::New(result->message->topic_name()).ToLocalChecked());
+                Nan::New(result->topic).ToLocalChecked());
             jsMessage->Set(Nan::New("partition").ToLocalChecked(),
-                Nan::New(result->message->partition()));
+                Nan::New(result->partition));
             jsMessage->Set(Nan::New("payload").ToLocalChecked(),
-                Nan::CopyBuffer((char*) result->message->payload(), (uint32_t) result->message->len()).ToLocalChecked());
-            const std::string* key = result->message->key();
+                Nan::NewBuffer(result->payload, result->len).ToLocalChecked());
+            const std::string* key = result->key;
             if (key) {
                 jsMessage->Set(Nan::New("key").ToLocalChecked(), Nan::New(*key).ToLocalChecked());
             }
-            jsMessage->Set(Nan::New("offset").ToLocalChecked(), Nan::New((double) result->message->offset()));
+            jsMessage->Set(Nan::New("offset").ToLocalChecked(), Nan::New(result->offset));
 
             Local<Value> argv[] = { Nan::Null(), jsMessage };
             Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
         } else {
             // Got at error, return it as the first callback arg
-            Local<Object> error = Nan::Error(result->message->errstr().c_str()).As<Object>();
-            error->Set(Nan::New("code").ToLocalChecked(), Nan::New(result->message->err()));
+            Local<Object> error = Nan::Error(result->errStr.c_str()).As<Object>();
+            error->Set(Nan::New("code").ToLocalChecked(), Nan::New(result->err));
             Local<Value> argv[] = { error.As<Value>(), Nan::Null() };
             Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
         }
