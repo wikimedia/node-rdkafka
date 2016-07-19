@@ -1,3 +1,5 @@
+"use strict";
+
 const ErrorCode = require('./lib/ErrorCode');
 const Promise = require('bluebird');
 const bindings = require('./build/Release/bindings');
