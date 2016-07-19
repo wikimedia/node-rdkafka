@@ -1,6 +1,7 @@
 #ifndef KAFKA_CONSUMER_H
 #define KAFKA_CONSUMER_H
 
+#include <atomic>
 #include <node.h>
 #include <nan.h>
 #include <uv.h>

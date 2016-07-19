@@ -17,7 +17,7 @@
         [ '<(BUILD_LIBRDKAFKA)==1',
           {
             'dependencies': ['librdkafka'],
-            'include_dirs': ["deps/librdkafka/src-cpp"],
+            'include_dirs': [ "deps/librdkafka/src-cpp" ],
             'libraries' : [ '-lz', '-lsasl2'],
           },
           # Else link against globally installed rdkafka and use
@@ -36,7 +36,7 @@
           {
             'xcode_settings': {
               'MACOSX_DEPLOYMENT_TARGET': '10.11',
-              'OTHER_CFLAGS' : ['-Wall', '-Wno-sign-compare', '-Wno-missing-field-initializers'],
+              'OTHER_CFLAGS' : ['-Wall', '-Wno-sign-compare', '-Wno-missing-field-initializers', '-std=c++11'],
             },
           }
         ],

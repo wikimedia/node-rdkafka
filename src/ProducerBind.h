@@ -1,6 +1,7 @@
 #ifndef PRODUCER_H
 #define PRODUCER_H
 
+#include <atomic>
 #include <node.h>
 #include <nan.h>
 
