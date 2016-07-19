@@ -72,8 +72,8 @@
         'librdkafka_config_h',
       ],
       "sources": [
-        "<!@(ls -1 deps/librdkafka/src/*.c)",
-        "<!@(ls -1 deps/librdkafka/src-cpp/*.cpp)",
+        "<!@(ls -1 ./deps/librdkafka/src/*.c)",
+        "<!@(ls -1 ./deps/librdkafka/src-cpp/*.cpp)",
       ],
       'cflags_cc!': [ '-fno-rtti' ],
       'conditions': [
