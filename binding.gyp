@@ -1,7 +1,7 @@
 {
   'variables': {
       # may be redefined in command line on configuration stage
-      'BUILD_LIBRDKAFKA%': 0,
+      'BUILD_LIBRDKAFKA%': 1,
   },
   "targets": [
     {
@@ -10,7 +10,6 @@
       "include_dirs": [
         "<!(node -e \"require('nan')\")",
       ],
-      'libraries' : ['-lz'],
       'conditions': [
         # If BUILD_LIBRDKAFKA, then
         # depend on librdkafka target, and use src-cpp when building
@@ -19,6 +18,7 @@
           {
             'dependencies': ['librdkafka'],
             'include_dirs': ["deps/librdkafka/src-cpp"],
+            'libraries' : [ '-lz', '-lsasl2'],
           },
           # Else link against globally installed rdkafka and use
           # globally installed headers.  On Debian, you should
@@ -48,60 +48,51 @@
       ]
     },
 
-    # Build deps/librdkafka
     {
-      "target_name": "librdkafka",
+      "target_name": "librdkafka_config_h",
       "type": "none",
-
-      'conditions': [
-        # Vary outputs of the build action based on OS.
-        [ 'OS=="mac"',
-          {
-            'variables' : {
-              'OUTPUTS': [
-                'deps/librdkafka/src/librdkafka.1.dylib',
-                'deps/librdkafka/src-cpp/librdkafka++.dylib'
-              ],
-            },
-          },
-        ],
-        [ 'OS=="linux"',
-          {
-            'variables' : {
-              'OUTPUTS': [
-                'deps/librdkafka/src/librdkafka.so',
-                'deps/librdkafka/src-cpp/librdkafka++.so',
-              ],
-            }
-          }
-        ]
-      ],
-
       "actions": [
         {
-          # TODO: should this be two actions, conifgure && make?
-          'action_name': 'build_librdkafka',
+          'action_name': 'configure_librdkafka',
+          'message': 'configuring librdkafka...',
           'inputs': [
             'deps/librdkafka/configure',
           ],
-          'outputs': [ '<@(OUTPUTS)' ],
-          'conditions': [
-            # If BUILD_LIBRDKAFKA, then configure and make deps/librdkafka
-            [ '<(BUILD_LIBRDKAFKA)==1',
-              {
-                'message': 'Building librdkafka...',
-                'action': ['eval', 'cd deps/librdkafka && ./configure && make'],
-              },
-              # Else do nothing. TODO: this feels a little hacky. But it works!
-              {
-                'message': 'NOT building local librdkafka, using globally installed binaries and headers.',
-                "action": [],
-              }
-            ],
-          ]
-
+          'outputs': [
+            'deps/librdkafka/config.h',
+          ],
+          'action': ['eval', 'cd deps/librdkafka && ./configure'],
         },
       ],
+    },
+    {
+      "target_name": "librdkafka",
+      "type": "static_library",
+      'dependencies': [
+        'librdkafka_config_h',
+      ],
+      "sources": [
+        "<!@(ls -1 deps/librdkafka/src/*.c)",
+        "<!@(ls -1 deps/librdkafka/src-cpp/*.cpp)",
+      ],
+      'cflags_cc!': [ '-fno-rtti' ],
+      'conditions': [
+        [
+          'OS=="mac"',
+          {
+            'xcode_settings': {
+              'MACOSX_DEPLOYMENT_TARGET': '10.11',
+              'OTHER_CFLAGS' : ['-Wno-sign-compare', '-Wno-missing-field-initializers'],
+              'GCC_ENABLE_CPP_RTTI': 'YES'
+            }
+          }
+        ],[
+          'OS=="linux"',
+          {
+            'cflags' : [ '-Wno-sign-compare', '-Wno-missing-field-initializers', '-Wno-empty-body', '-g'],
+          }
+        ]
+      ]
     }
   ]
 }
