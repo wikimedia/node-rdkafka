@@ -22,39 +22,26 @@ function get() {
         const offset = new kafka.TopicPartition(message.topicName, message.partition);
         offset.offset = message.offset;
         consumer.commit([offset]);
+        global.gc();
     })
-    .catch(console.log.bind(console));
+    .catch(console.log.bind(console))
+    .then(get);
 }
 
-for (let i = 0; i < 100; i++)
+for (let i = 0; i < 50; i++)
 {
     get();
 }
 
-setTimeout(() => consumer.close(), 5000);
-
-/*const producer1 = new kafka.Producer({
+const producer1 = new kafka.Producer({
     "metadata.broker.list": "127.0.0.1:9092"
 });
 const produce1 = () => {
-    producer1.produce('test_dc.resource_change5', 'TEST_MESSAGE11')
+    producer1.produce('test_dc.resource_change5', 'TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11TEST_MESSAGE11')
         .then((offset) => {
             console.log(offset);
+            global.gc();
         })
-        .then(() => {
-            producer1.close()
-        });
+        .then(produce1);
 };
 produce1();
-
-const producer2 = new kafka.Producer({
-    "metadata.broker.list": "127.0.0.1:9092"
-});
-const produce2 = () => {
-    producer2.produce('test_dc.resource_change5', 'TEST1')
-    .then((offset) => {
-        console.log(offset);
-    })
-    .then(() => producer2.close());
-};
-produce2();*/

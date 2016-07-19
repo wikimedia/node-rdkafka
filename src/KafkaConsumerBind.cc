@@ -136,18 +136,12 @@ RdKafka::ErrorCode KafkaConsumerBind::doClose() {
         uv_thread_join(&this->consumerThread);
 
         this->consumeResultQueue->stop();
-        uv_close((uv_handle_t*) &this->resultNotifier, &KafkaConsumerBind::ResultNotifierClosed);
+        uv_close((uv_handle_t*) &this->resultNotifier, NULL);
 
         return this->impl->close();
     }
     return RdKafka::ErrorCode::ERR_NO_ERROR;
 }
-
-void KafkaConsumerBind::ResultNotifierClosed(uv_handle_t* handle) {
-    // TODO KafkaConsumerBind* obj = static_cast<KafkaConsumerBind*> (handle->data);
-    //obj->consumeResultQueue->stop();
-}
-
 
 // Consumer loop
 void KafkaConsumerBind::ConsumerLoop(void* context) {
@@ -182,10 +176,7 @@ void KafkaConsumerBind::ConsumerLoop(void* context) {
                 return;
             }
 
-            consumerBind->consumeResultQueue->push(new ConsumeResult(consumption,
-                message->payload(), message->len(),
-                message->topic_name(), message->partition(), message->offset(),
-                message->err(), message->errstr(), message->key()));
+            consumerBind->consumeResultQueue->push(new ConsumeResult(consumption, message));
             delete message;
             uv_async_send(&consumerBind->resultNotifier);
         }

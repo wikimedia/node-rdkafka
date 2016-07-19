@@ -11,26 +11,27 @@
 
 using namespace v8;
 
+/**
+ * A wrapper for the JS callback and a message that should be sent to it.
+ * Copies the message payload on construction.
+ */
 class ConsumeResult {
     public:
         ConsumeResult(Nan::Persistent<Function>* c,
-            void* payload, size_t len,
-            std::string topic, int32_t partition, int64_t offset,
-            RdKafka::ErrorCode err, std::string errStr,
-            const std::string* key) {
+            RdKafka::Message* message) {
 
             this->callback = c;
-            this->payload = (char*) malloc(len);
-            memcpy(this->payload, payload, len);
-            this->len = (uint32_t) len;
+            this->payload = (char*) malloc(message->len());
+            memcpy(this->payload, message->payload(), message->len());
+            this->len = (uint32_t) message->len();
 
-            this->topic = topic;
-            this->partition = partition;
-            this->offset = offset;
-            this->key = key;
+            this->topic = message->topic_name();
+            this->partition = message->partition();
+            this->offset = message->offset();
+            this->key = message->key();
 
-            this->err = err;
-            this->errStr = errStr;
+            this->err = message->err();
+            this->errStr = message->errstr();
         }
         ~ConsumeResult() {
             this->callback->Reset();

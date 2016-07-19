@@ -1,6 +1,6 @@
 {
   "name": "librdkafka-node",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Direct node wrappers over C++ librdkafka API",
   "main": "index.js",
   "scripts": {
