@@ -1,19 +1,42 @@
 {
-  "name": "librdkafka-node",
-  "version": "0.0.2",
+  "name": "rdkafka",
+  "version": "0.0.3",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/wikimedia/node-rdkafka.git"
+  },
   "description": "Direct node wrappers over C++ librdkafka API",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "mocha",
+    "coverage": "istanbul cover _mocha -- -R spec",
+    "coveralls": "cat ./coverage/lcov.info | coveralls",
     "docs": "mkdir -p docs; jsdoc2md ./index.js > ./docs/api.md"
   },
-  "author": "Petr Pchelko <ppchelko@wikimedia.org>",
+  "keywords": [
+    "Kafka",
+    "librdkafka",
+    "Kafka driver"
+  ],
+  "author": "Wikimedia Services Team <services@lists.wikimedia.org>",
+  "contributors": [
+    "Petr Pchelko <ppchelko@wikimedia.org>"
+  ],
   "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://phabricator.wikimedia.org/tag/services/"
+  },
   "dependencies": {
     "nan": "^2.3.5",
     "bluebird": "^3.4.1"
   },
   "devDependencies": {
-    "jsdoc-to-markdown": "^1.3.6"
+    "jsdoc-to-markdown": "^1.3.6",
+    "istanbul": "^0.4.3",
+    "mocha": "^2.5.3",
+    "mocha-jscs": "^5.0.1",
+    "mocha-jshint": "^2.3.1",
+    "mocha-lcov-reporter": "^1.2.0",
+    "coveralls": "^2.11.9"
   }
 }
