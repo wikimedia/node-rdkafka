@@ -4,6 +4,45 @@
 [![Dependencies](https://img.shields.io/david/wikimedia/node-rdkafka.svg?maxAge=2592000&style=flat-square)](https://david-dm.org/wikimedia/node-rdkafka)
 [![License](https://img.shields.io/github/license/wikimedia/node-rdkafka.svg?maxAge=2592000&style=flat-square)](https://github.com/wikimedia/node-rdkafka/blob/master/LICENSE)
 
+Node.js bindings for the C++ API of the [librdkafka](https://github.com/edenhill/librdkafka) client for [Apache Kafka](http://kafka.apache.org) messaging system. The library binds to the `Producer` and high-level `KafkaConsumer` and tries to mimic the API of `librdkafka`, returning promises where appropriate. This client requires Apache Kafka >0.9 and node.js >4
+
+Example usage:
+```javascript
+const kafka = require('./index');
+
+const producer = new kafka.Producer({
+    'metadata.broker.list': 'localhost:9092'
+});
+
+producer.produce('example_topic', 'Test message')
+.then((offset) => {
+    console.log(`Produced a message with offset ${offset}`);
+
+    const consumer = new kafka.KafkaConsumer({
+        'metadata.broker.list': 'localhost:9092',
+        'group.id': 'my_group_id',
+        'fetch.wait.max.ms': '1',
+        'fetch.min.bytes': '1',
+        'queue.buffering.max.ms': '1',
+    });
+    consumer.subscribe([ 'example_topic' ]);
+    return consumer.consume()
+    .then((message) => {
+        console.log(`Got a message: \n` +
+            `   topic: ${message.topicName}\n` +
+            `   partition: ${message.partition}\n` +
+            `   offset: ${message.offset}\n` +
+            `   payload: ${message.payload.toString()}\n`);
+    })
+    .then(() => {
+        producer.close();
+        consumer.close();
+    });
+});
+```
+
+## API Documentation
+  Can be found [here](https://github.com/wikimedia/node-rdkafka/blob/master/docs/api.md)
 
 ## Building with node-gyp
 
@@ -26,3 +65,5 @@ with .deb packages), do
 node-gyp configure --BUILD_LIBRDKAKFA=0
 node-gyp build
 ```
+
+##
