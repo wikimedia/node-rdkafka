@@ -21,4 +21,4 @@ addons:
     packages:
       - g++-4.8
 
-script: npm run coverage && (npm run coveralls || exit 0)
+script: npm test
