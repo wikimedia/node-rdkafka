@@ -1,3 +1,5 @@
+"use strict";
+
 const kafka = require('./index');
 
 const producer = new kafka.Producer({
