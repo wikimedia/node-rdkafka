@@ -49,7 +49,7 @@ ProducerBind::ProducerBind(RdKafka::Conf* conf) : running(true) {
         Nan::ThrowError(errstr.c_str());
     }
 
-    this->deliverReportQueue = new Queue<DeliveryReport>(false);
+    this->deliverReportQueue = new Queue<DeliveryReport>(Blocking::NON_BLOCKING);
 
     uv_async_init(uv_default_loop(), &this->deliveryNotifier, &ProducerBind::DeliverReportCallback);
     this->deliveryNotifier.data = this;

@@ -4,10 +4,11 @@
 #include<vector>
 #include<uv.h>
 
+enum Blocking { BLOCKING, NON_BLOCKING };
+
 template <class CONTENT_TYPE> class Queue {
     public:
-        Queue(bool isBlocking) {
-            blocking = isBlocking;
+        Queue(Blocking isBlocking) : blocking(isBlocking) {
             running = true;
             this->contentVector = new std::vector<CONTENT_TYPE*>();
             uv_mutex_init(&this->mutex);
@@ -39,7 +40,7 @@ template <class CONTENT_TYPE> class Queue {
                     return NULL;
                 }
 
-                if (this->blocking) {
+                if (this->blocking == Blocking::BLOCKING) {
                     while(this->contentVector->size() == 0
                         && uv_cond_timedwait(&this->cond, &this->mutex, 500) != 0) {
                         if (!this->running) {
@@ -67,8 +68,7 @@ template <class CONTENT_TYPE> class Queue {
         uv_mutex_t mutex;
         uv_cond_t cond;
 
-        // TODO: make it constant
-        bool blocking;
+        const Blocking blocking;
         bool running;
 };
 

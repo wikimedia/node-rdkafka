@@ -43,6 +43,8 @@ NAN_METHOD(KafkaConsumerBind::New) {
 
 KafkaConsumerBind::KafkaConsumerBind(RdKafka::Conf* conf) : running(true) {
     std::string errstr;
+    CONF_SET_PROPERTY(conf, "event_cb", this);
+
     this->impl = RdKafka::KafkaConsumer::create(conf, errstr);
     delete conf;
 
@@ -52,8 +54,8 @@ KafkaConsumerBind::KafkaConsumerBind(RdKafka::Conf* conf) : running(true) {
     }
 
     // TODO: make blocking variable a enum
-    this->consumeJobQueue = new Queue<Nan::Persistent<Function>>(true);
-    this->consumeResultQueue = new Queue<ConsumeResult>(false);
+    this->consumeJobQueue = new Queue<Nan::Persistent<Function>>(Blocking::BLOCKING);
+    this->consumeResultQueue = new Queue<ConsumeResult>(Blocking::NON_BLOCKING);
 
     uv_async_init(uv_default_loop(), &this->resultNotifier, &KafkaConsumerBind::ConsumerCallback);
     this->resultNotifier.data = this;
@@ -141,6 +143,10 @@ RdKafka::ErrorCode KafkaConsumerBind::doClose() {
         return this->impl->close();
     }
     return RdKafka::ErrorCode::ERR_NO_ERROR;
+}
+
+void event_cb (RdKafka::Event &event) {
+    printf("Event %s\n", event.str().c_str()); fflush(stdout);
 }
 
 // Consumer loop

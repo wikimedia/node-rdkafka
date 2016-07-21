@@ -56,7 +56,7 @@ class ConsumeResult {
         std::string errStr;
 };
 
-class KafkaConsumerBind : public Nan::ObjectWrap {
+class KafkaConsumerBind : public Nan::ObjectWrap, RdKafka::EventCb {
     public:
         static Nan::Persistent<Function> constructor;
         static NAN_MODULE_INIT(Init);
@@ -69,6 +69,8 @@ class KafkaConsumerBind : public Nan::ObjectWrap {
         static NAN_METHOD(Commit);
         // void close();
         static NAN_METHOD(Close);
+
+        void event_cb (RdKafka::Event &event);
 
         RdKafka::KafkaConsumer* impl;
     private:
