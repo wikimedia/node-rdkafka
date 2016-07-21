@@ -12,51 +12,7 @@
 
 using namespace v8;
 
-/**
- * A wrapper for the JS callback and a message that should be sent to it.
- * Copies the message payload on construction.
- */
-class ConsumeResult {
-    public:
-        ConsumeResult(Nan::Persistent<Function>* c,
-            RdKafka::Message* message) {
-
-            this->callback = c;
-            this->payload = (char*) malloc(message->len());
-            memcpy(this->payload, message->payload(), message->len());
-            this->len = (uint32_t) message->len();
-
-            this->topic = message->topic_name();
-            this->partition = message->partition();
-            this->offset = message->offset();
-            this->key = message->key();
-
-            this->err = message->err();
-            this->errStr = message->errstr();
-        }
-        ~ConsumeResult() {
-            this->callback->Reset();
-            delete this->callback;
-            if (this->key) {
-                delete this->key;
-            }
-            // Don't delete the payload here - it's passed to the v8 Buffer
-            // without making a copy, so the memory is handled by v8 GC.
-        }
-        Nan::Persistent<Function>* callback;
-        char* payload;
-        uint32_t len;
-
-        std::string topic;
-        int32_t partition;
-        double offset;
-
-        const std::string* key;
-        RdKafka::ErrorCode err;
-        std::string errStr;
-};
-
-class KafkaConsumerBind : public Nan::ObjectWrap {
+class KafkaConsumerBind : public Nan::ObjectWrap, public RdKafka::EventCb {
     public:
         static Nan::Persistent<Function> constructor;
         static NAN_MODULE_INIT(Init);
@@ -70,12 +26,65 @@ class KafkaConsumerBind : public Nan::ObjectWrap {
         // void close();
         static NAN_METHOD(Close);
 
+        void event_cb (RdKafka::Event &event);
+
         RdKafka::KafkaConsumer* impl;
     private:
+        enum ResultType { MESSAGE, EVENT };
+        class Result {
+            public:
+                Result(ResultType type): type(type) {}
+                ResultType type;
+        };
+        /**
+         * A wrapper for the JS callback and a message that should be sent to it.
+         * Copies the message payload on construction.
+         */
+        class MessageResult : public Result {
+            public:
+                MessageResult(Nan::Persistent<Function>* c, RdKafka::Message* message);
+                ~MessageResult();
+                // Construct the message JS object
+                Local<Object> toJSObject();
+                // Construct the message error JS object
+                Local<Object> toJSError();
+
+                Nan::Persistent<Function>* callback;
+                RdKafka::ErrorCode err;
+            private:
+                char* payload;
+                uint32_t len;
+                std::string topic;
+                int32_t partition;
+                double offset;
+                const std::string* key;
+                std::string errStr;
+        };
+        /**
+         * A wrapper for RdKafka::Event class
+         */
+        class EventResult : public Result {
+            public:
+                EventResult(RdKafka::Event* event);
+
+                Local<Object> toJSError();
+                Local<Object> toJSLog();
+                Local<Object> toJSThrottle();
+
+                RdKafka::Event::Type type;
+                RdKafka::ErrorCode err;
+                RdKafka::Event::Severity severity;
+                std::string fac;
+                std::string str;
+                int throttleTime;
+                std::string brokerName;
+                int brokerId;
+        };
+
+
         static NAN_METHOD(New);
 
-
-        KafkaConsumerBind(RdKafka::Conf* conf);
+        KafkaConsumerBind(RdKafka::Conf* conf, Nan::Persistent<Function>* jsEmitCb);
         ~KafkaConsumerBind();
         RdKafka::ErrorCode doClose();
         static void ResultNotifierClosed(uv_handle_t* handle);
@@ -87,9 +96,11 @@ class KafkaConsumerBind : public Nan::ObjectWrap {
         uv_async_t resultNotifier;
 
         Queue<Nan::Persistent<Function>>* consumeJobQueue;
-        Queue<ConsumeResult>* consumeResultQueue;
+        Queue<Result>* resultQueue;
 
         std::atomic<bool> running;
+
+        Persistent<Function>* jsEmitCb;
 };
 
 #endif

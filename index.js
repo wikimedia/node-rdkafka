@@ -3,6 +3,7 @@
 const ErrorCode = require('./lib/ErrorCode');
 const P = require('bluebird');
 const bindings = require('./build/Release/bindings');
+const EventEmitter = require('events').EventEmitter;
 
 /**
  * Message returned by the KafkaConsumer. The JS object wraps the native C++ object
@@ -29,7 +30,7 @@ const bindings = require('./build/Release/bindings');
  * The API is almost a direct mapping for a native API, but most of the
  * functions are async and promisified.
  */
-class KafkaConsumer {
+class KafkaConsumer extends EventEmitter {
     /**
      * Constructs a new instance of the consumer.
      *
@@ -38,7 +39,14 @@ class KafkaConsumer {
      *                      [librdkafka configuration docs](https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md)
      */
     constructor(conf) {
-        this.impl = new bindings.KafkaConsumer(conf);
+        super();
+        this.impl = new bindings.KafkaConsumer(conf, (eventType, event) => {
+            if (eventType === 'stats') {
+                this.emit(eventType, JSON.parse(event));
+            } else {
+                this.emit(eventType, event);
+            }
+        });
     }
 
     /**
@@ -101,6 +109,15 @@ class KafkaConsumer {
      */
     close() {
         this.impl.close();
+    }
+
+    /**
+     *
+     * @param event
+     * @private
+     */
+    _emitInternal(event) {
+
     }
 }
 
