@@ -8,7 +8,7 @@ Node.js bindings for the C++ API of the [librdkafka](https://github.com/edenhill
 
 Example usage:
 ```javascript
-const kafka = require('./index');
+const kafka = require('rdkafka');
 
 const producer = new kafka.Producer({
     'metadata.broker.list': 'localhost:9092'
