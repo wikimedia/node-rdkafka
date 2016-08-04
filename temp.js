@@ -23,7 +23,7 @@ consumer1.on('stats', (err) => {
     console.log('CONS1 STATS: ', err);
 });
 function get1() {
-    producer.produce('example_topic', 'Test message')
+    producer.produce('example_topic', 0, 'Test message')
     .then((offset) => {
         console.log(`Produced a message with offset ${offset}`);
 
@@ -56,7 +56,7 @@ consumer2.on('log', (err) => {
 });
 
 function get2() {
-    producer.produce('example_topic', 'Test message')
+    producer.produce('example_topic', 0, 'Test message')
     .then((offset) => {
         console.log(`Produced a message with offset ${offset}`);
 

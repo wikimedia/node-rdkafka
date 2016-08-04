@@ -116,7 +116,7 @@ class.
 
 * [Producer](#Producer)
     * [new Producer(conf)](#new_Producer_new)
-    * [.produce(topic, payload)](#Producer+produce)
+    * [.produce(topic, partition, payload)](#Producer+produce)
     * [.close()](#Producer+close)
 
 <a name="new_Producer_new"></a>
@@ -131,7 +131,7 @@ Constructs a new producer.
 
 <a name="Producer+produce"></a>
 
-### producer.produce(topic, payload)
+### producer.produce(topic, partition, payload)
 Send a message to the queue.
 
 **Kind**: instance method of <code>[Producer](#Producer)</code>  
@@ -140,6 +140,7 @@ Send a message to the queue.
 | Param | Type | Description |
 | --- | --- | --- |
 | topic | <code>string</code> | a name of the topic to send the message to |
+| partition | <code>Number</code> | number of a partition to send the message to |
 | payload | <code>string</code> | the contents of the message |
 
 <a name="Producer+close"></a>

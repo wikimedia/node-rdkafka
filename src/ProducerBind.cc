@@ -12,7 +12,7 @@ NAN_MODULE_INIT(ProducerBind::Init) {
     Nan::HandleScope scope;
 
     Local<FunctionTemplate> t = Nan::New<FunctionTemplate>(New);
-    t->InstanceTemplate()->SetInternalFieldCount(1);
+    t->InstanceTemplate()->SetInternalFieldCount(5);
     t->SetClassName(Nan::New("Producer").ToLocalChecked());
 
     // Register all prototype methods
@@ -44,7 +44,6 @@ ProducerBind::ProducerBind(RdKafka::Conf* conf) : running(true) {
 
     this->impl = RdKafka::Producer::create(conf, errstr);
     delete conf;
-    // TODO: Proper Error handling
     if (!this->impl) {
         Nan::ThrowError(errstr.c_str());
     }
@@ -65,10 +64,11 @@ ProducerBind::~ProducerBind() {
 NAN_METHOD(ProducerBind::Produce) {
     std::string errstr;
 
-    REQUIRE_ARGUMENTS(3);
+    REQUIRE_ARGUMENTS(4);
     REQUIRE_ARGUMENT_STRING(0, topic_name);
-    REQUIRE_ARGUMENT_STRING(1, payload);
-    REQUIRE_ARGUMENT_FUNCTION(2, jsCallback);
+    REQUIRE_ARGUMENT_NUMBER(1, partition);
+    REQUIRE_ARGUMENT_STRING(2, payload);
+    REQUIRE_ARGUMENT_FUNCTION(3, jsCallback);
 
     ProducerBind* obj = ObjectWrap::Unwrap<ProducerBind>(info.Holder());
 
@@ -83,8 +83,8 @@ NAN_METHOD(ProducerBind::Produce) {
     // Then it will be transferred to the event loop together with the result and called.
     Nan::Persistent<Function>* persistentCallback = new Nan::Persistent<Function>(jsCallback);
 
-    RdKafka::ErrorCode resp = obj->impl->produce(topic, 0,
-    			  RdKafka::Producer::RK_MSG_COPY /* TODO: think about it Copy payload */,
+    RdKafka::ErrorCode resp = obj->impl->produce(topic, partition,
+    			  RdKafka::Producer::RK_MSG_COPY,
     			  const_cast<char *>(payload.c_str()), payload.size(),
     			  NULL, (void*) persistentCallback);
     delete topic;

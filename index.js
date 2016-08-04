@@ -5,6 +5,17 @@ const P = require('bluebird');
 const bindings = require('./build/Release/bindings');
 const EventEmitter = require('events').EventEmitter;
 
+function stringifyConf(conf) {
+    Object.keys(conf).forEach((key) => {
+        if (typeof conf[key] === 'object') {
+            conf[key] = stringifyConf(conf[key]);
+        } else if (conf[key] !== undefined) {
+            conf[key] = '' + conf[key];
+        }
+    });
+    return conf;
+}
+
 /**
  * Message returned by the KafkaConsumer. The JS object wraps the native C++ object
  * returned by librdkafka, so every property read is actually transferred to a C++ object.
@@ -40,7 +51,7 @@ class KafkaConsumer extends EventEmitter {
      */
     constructor(conf) {
         super();
-        this.impl = new bindings.KafkaConsumer(conf, (eventType, event) => {
+        this.impl = new bindings.KafkaConsumer(stringifyConf(conf), (eventType, event) => {
             if (eventType === 'stats') {
                 this.emit(eventType, JSON.parse(event));
             } else {
@@ -134,19 +145,20 @@ class Producer {
      *                      [librdkafka configuration docs](https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md)
      */
     constructor(conf) {
-        this.impl = new bindings.Producer(conf);
+        this.impl = new bindings.Producer(stringifyConf(conf));
     }
 
     /**
      * Send a message to the queue.
      *
      * @param {string} topic a name of the topic to send the message to
+     * @param {Number} partition number of a partition to send the message to
      * @param {string} payload the contents of the message
      * @see [RdKafka::Producer::produce](http://docs.confluent.io/3.0.0/clients/librdkafka/classRdKafka_1_1Producer.html#ab90a30c5e5fb006a3b4004dc4c9a7923)
      */
-    produce(topic, payload) {
+    produce(topic, partition, payload) {
         return new P((resolve, reject) => {
-            this.impl.produce(topic, payload, (error, offset) => {
+            this.impl.produce(topic, partition, payload, (error, offset) => {
                 if (error) {
                     return reject(error);
                 }

@@ -12,7 +12,7 @@ NAN_MODULE_INIT(KafkaConsumerBind::Init) {
     Nan::HandleScope scope;
 
     Local<FunctionTemplate> t = Nan::New<FunctionTemplate>(New);
-    t->InstanceTemplate()->SetInternalFieldCount(3); // TODO: figure out this number
+    t->InstanceTemplate()->SetInternalFieldCount(7);
     t->SetClassName(Nan::New("KafkaConsumer").ToLocalChecked());
 
     // Register all prototype methods
@@ -90,7 +90,6 @@ NAN_METHOD(KafkaConsumerBind::Consume) {
 NAN_METHOD(KafkaConsumerBind::Subscribe) {
     REQUIRE_ARGUMENTS(1);
 
-    // TODO: Find a more efficient way to cas the JS array to std::vector
     Local<Array> jsArray = Local<Array>::Cast(info[0]);
     std::vector<std::string> topics(jsArray->Length());
     for (int i = 0; i < jsArray->Length(); i++) {
@@ -111,7 +110,6 @@ NAN_METHOD(KafkaConsumerBind::Commit) {
     KafkaConsumerBind* obj = ObjectWrap::Unwrap<KafkaConsumerBind>(info.Holder());
 
     if (info[0]->IsArray()) {
-        // TODO: Find a more efficient way to cas the JS array to std::vector
         Local<Array> jsArray = Local<Array>::Cast(info[0]);
         std::vector<RdKafka::TopicPartition*> topicPartitions(jsArray->Length());
         for (int i = 0; i < jsArray->Length(); i++) {

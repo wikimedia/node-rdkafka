@@ -1,11 +1,12 @@
 {
   "name": "rdkafka",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "repository": {
     "type": "git",
     "url": "git://github.com/wikimedia/node-rdkafka.git"
   },
   "description": "Direct node wrappers over C++ librdkafka API",
+  "readme": "README.md",
   "main": "index.js",
   "scripts": {
     "test": "mocha",

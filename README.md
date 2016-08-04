@@ -14,16 +14,17 @@ const producer = new kafka.Producer({
     'metadata.broker.list': 'localhost:9092'
 });
 
-producer.produce('example_topic', 'Test message')
+producer.produce('example_topic', 0, 'Test message')
 .then((offset) => {
     console.log(`Produced a message with offset ${offset}`);
 
     const consumer = new kafka.KafkaConsumer({
         'metadata.broker.list': 'localhost:9092',
         'group.id': 'my_group_id',
-        'fetch.wait.max.ms': '1',
-        'fetch.min.bytes': '1',
-        'queue.buffering.max.ms': '1',
+        'fetch.wait.max.ms': 1,
+        'fetch.min.bytes': 1,
+        'queue.buffering.max.ms': 1,
+        'enable.auto.commit': false
     });
     consumer.subscribe([ 'example_topic' ]);
     return consumer.consume()
@@ -33,6 +34,10 @@ producer.produce('example_topic', 'Test message')
             `   partition: ${message.partition}\n` +
             `   offset: ${message.offset}\n` +
             `   payload: ${message.payload.toString()}\n`);
+        const commitRequest = new kafka.TopicPartition(message.topic, 
+            message.partition, 
+            message.offset + 1);
+        return consumer.commit([ commitRequest ]);
     })
     .then(() => {
         producer.close();
