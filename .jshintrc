@@ -2,7 +2,9 @@
   "predef": [
     "setImmediate",
     "Map",
-    "Set"
+    "Set",
+    "describe",
+    "it"
   ],
 
   "bitwise": true,

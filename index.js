@@ -58,6 +58,7 @@ class KafkaConsumer extends EventEmitter {
                 this.emit(eventType, event);
             }
         });
+        this.subscribed = false;
     }
 
     /**
@@ -69,6 +70,7 @@ class KafkaConsumer extends EventEmitter {
      * @param {string[]} topics The list of topics to subscribe too
      */
     subscribe(topics) {
+        this.subscribed = true;
         return this.impl.subscribe(topics);
     }
 
@@ -81,6 +83,10 @@ class KafkaConsumer extends EventEmitter {
      */
     consume() {
         return new P((resolve, reject) => {
+            if (!this.subscribed) {
+                return reject(new Error('Must not call consume for a non-subscribed client'));
+            }
+
             this.impl.consume((error, value) => {
                 if (error) {
                     return reject(error);
@@ -145,6 +151,11 @@ class Producer {
      *                      [librdkafka configuration docs](https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md)
      */
     constructor(conf) {
+        conf.default_topic_conf = Object.assign(conf.default_topic_conf || {}, {
+            // Without this delivery reports might get combined,
+            // so some produce promises might not be resolved.
+            'produce.offset.report': true
+        });
         this.impl = new bindings.Producer(stringifyConf(conf));
     }
 
@@ -154,6 +165,7 @@ class Producer {
      * @param {string} topic a name of the topic to send the message to
      * @param {Number} partition number of a partition to send the message to
      * @param {string} payload the contents of the message
+     *
      * @see [RdKafka::Producer::produce](http://docs.confluent.io/3.0.0/clients/librdkafka/classRdKafka_1_1Producer.html#ab90a30c5e5fb006a3b4004dc4c9a7923)
      */
     produce(topic, partition, payload) {
@@ -193,7 +205,7 @@ module.exports.Producer = Producer;
  * @param {string} topic The topic
  * @param {number} partition The partition
  *
- * @property {string} topic The topic, readonly
+ * @property {string} topicName The topic, readonly
  * @property {number} partition The partition, readonly
  * @property {number} offset The offset
  * @property {ErrorCode} err The error code, readonly

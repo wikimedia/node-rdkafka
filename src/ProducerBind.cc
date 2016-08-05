@@ -109,7 +109,7 @@ NAN_METHOD(ProducerBind::Close) {
 void ProducerBind::dr_cb(RdKafka::Message &message) {
     this->deliverReportQueue->push(new DeliveryReport(
         static_cast<Nan::Persistent<Function>*>(message.msg_opaque()),
-        message.offset(),
+        message.offset() - 1, // Delivery report gives us the offset that's larger by one. // TODO report bug
         message.err(),
         message.errstr()));
     uv_async_send(&this->deliveryNotifier);
