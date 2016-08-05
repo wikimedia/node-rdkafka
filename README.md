@@ -15,9 +15,7 @@ const producer = new kafka.Producer({
 });
 
 producer.produce('example_topic', 0, 'Test message')
-.then((offset) => {
-    console.log(`Produced a message with offset ${offset}`);
-
+.then(() => {    
     const consumer = new kafka.KafkaConsumer({
         'metadata.broker.list': 'localhost:9092',
         'group.id': 'my_group_id',
