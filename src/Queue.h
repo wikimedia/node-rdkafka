@@ -42,7 +42,8 @@ template <class CONTENT_TYPE> class Queue {
 
                 if (this->blocking == Blocking::BLOCKING) {
                     while(this->contentVector->size() == 0
-                        && uv_cond_timedwait(&this->cond, &this->mutex, 500) != 0) {
+                        // The timeout is in nanoseconds, so 500000000ns = 500ms
+                        && uv_cond_timedwait(&this->cond, &this->mutex, 500000000) != 0) {
                         if (!this->running) {
                             uv_mutex_unlock(&this->mutex);
                             return NULL;
