@@ -39,6 +39,7 @@ class MessageBind : public Nan::ObjectWrap {
         int32_t partition;
         double offset;
         const std::string* key;
+        Persistent<Object>* buffer;
 };
 
 #endif
