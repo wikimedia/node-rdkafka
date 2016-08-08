@@ -1,5 +1,6 @@
 #include "KafkaConsumerBind.h"
 
+#include "MessageBind.h"
 #include "TopicPartitionBind.h"
 #include "ConfHelper.h"
 #include "macros.h"
@@ -25,6 +26,8 @@ NAN_MODULE_INIT(KafkaConsumerBind::Init) {
 
     Nan::Set(target, Nan::New("KafkaConsumer").ToLocalChecked(),
         Nan::GetFunction(t).ToLocalChecked());
+
+    MessageBind::Init(target);
 };
 
 NAN_METHOD(KafkaConsumerBind::New) {
@@ -217,7 +220,7 @@ void KafkaConsumerBind::ConsumerCallback(uv_async_t* handle) {
             MessageResult* msgResult = static_cast<MessageResult*>(result);
             Local<Function> jsCallback = Nan::New(*msgResult->callback);
             if (msgResult->err == RdKafka::ErrorCode::ERR_NO_ERROR) {
-                Local<Value> argv[] = { Nan::Null(), msgResult->toJSObject() };
+                Local<Value> argv[] = { Nan::Null(), MessageBind::FromImpl(msgResult) };
                 Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
             } else {
                 // Got at error, return it as the first callback arg
@@ -258,83 +261,3 @@ void KafkaConsumerBind::ConsumerCallback(uv_async_t* handle) {
     }
     delete results;
 };
-
-// Helper classes to hold the results of the invocation
-// Construct the message JS object
-
-// MessageResult
-KafkaConsumerBind::MessageResult::MessageResult(Nan::Persistent<Function>* c, RdKafka::Message* message)
-        : Result(ResultType::MESSAGE) {
-    this->callback = c;
-    this->payload = (char*) malloc(message->len());
-    memcpy(this->payload, message->payload(), message->len());
-    this->len = (uint32_t) message->len();
-
-    this->topic = message->topic_name();
-    this->partition = message->partition();
-    this->offset = message->offset();
-    this->key = message->key();
-
-    this->err = message->err();
-    this->errStr = message->errstr();
-}
-KafkaConsumerBind::MessageResult::~MessageResult() {
-    this->callback->Reset();
-    delete this->callback;
-    if (this->key) {
-        delete this->key;
-    }
-    // Don't delete the payload here - it's passed to the v8 Buffer
-    // without making a copy, so the memory is handled by v8 GC.
-}
-Local<Object> KafkaConsumerBind::MessageResult::toJSObject() {
-    Local<Object> jsMessage = Nan::New<Object>();
-    jsMessage->Set(Nan::New("errStr").ToLocalChecked(), Nan::New(this->errStr).ToLocalChecked());
-    jsMessage->Set(Nan::New("err").ToLocalChecked(), Nan::New(this->err));
-    jsMessage->Set(Nan::New("topicName").ToLocalChecked(), Nan::New(this->topic).ToLocalChecked());
-    jsMessage->Set(Nan::New("partition").ToLocalChecked(), Nan::New(this->partition));
-    jsMessage->Set(Nan::New("payload").ToLocalChecked(),
-        Nan::NewBuffer(this->payload, this->len).ToLocalChecked());
-    const std::string* key = this->key;
-    if (key) {
-        jsMessage->Set(Nan::New("key").ToLocalChecked(), Nan::New(*key).ToLocalChecked());
-    }
-    jsMessage->Set(Nan::New("offset").ToLocalChecked(), Nan::New(this->offset));
-    return jsMessage;
-}
-Local<Object> KafkaConsumerBind::MessageResult::toJSError() {
-    Local<Object> error = Nan::Error(this->errStr.c_str()).As<Object>();
-    error->Set(Nan::New("code").ToLocalChecked(), Nan::New(this->err));
-    return error;
-}
-
-// EventResult
-KafkaConsumerBind::EventResult::EventResult(RdKafka::Event* event): Result(ResultType::EVENT) {
-    type = event->type();
-    err = event->err();
-    severity = event->severity();
-    fac = event->fac();
-    str = event->str();
-    throttleTime = event->throttle_time();
-    brokerName = event->broker_name();
-    brokerId = event->broker_id();
-}
-Local<Object> KafkaConsumerBind::EventResult::toJSError() {
-    Local<Object> error = Nan::Error(this->str.c_str()).As<Object>();
-    error->Set(Nan::New("code").ToLocalChecked(), Nan::New(this->err));
-    return error;
-}
-Local<Object> KafkaConsumerBind::EventResult::toJSLog() {
-    Local<Object> jsLog = Nan::New<Object>();
-    jsLog->Set(Nan::New("severity").ToLocalChecked(), Nan::New(this->severity));
-    jsLog->Set(Nan::New("fac").ToLocalChecked(), Nan::New(this->fac.c_str()).ToLocalChecked());
-    jsLog->Set(Nan::New("str").ToLocalChecked(), Nan::New(this->str.c_str()).ToLocalChecked());
-    return jsLog;
-}
-Local<Object> KafkaConsumerBind::EventResult::toJSThrottle() {
-    Local<Object> jsThrottle = Nan::New<Object>();
-    jsThrottle->Set(Nan::New("throttleTime").ToLocalChecked(), Nan::New(this->throttleTime));
-    jsThrottle->Set(Nan::New("brokerName").ToLocalChecked(), Nan::New(this->brokerName.c_str()).ToLocalChecked());
-    jsThrottle->Set(Nan::New("broker_id").ToLocalChecked(), Nan::New(this->brokerId));
-    return jsThrottle;
-}
