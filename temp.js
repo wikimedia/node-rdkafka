@@ -64,8 +64,7 @@ function get2() {
                 `   topic: ${message.topicName}\n` +
                 `   partition: ${message.partition}\n` +
                 `   offset: ${message.offset}\n` +
-                `   payload: ${message.payload.toString()}\n` +
-                `   key: ${message.key}\n`);
+                `   payload: ${message.payload.toString()}\n`);
         })
         .then(get2);
     });

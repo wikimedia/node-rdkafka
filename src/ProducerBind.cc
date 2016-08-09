@@ -102,6 +102,9 @@ NAN_METHOD(ProducerBind::Produce) {
     			  const_cast<char *>(payload.c_str()), payload.size(),
     			  key, (void*) persistentCallback);
     delete topic;
+    if (key != NULL) {
+        delete key;
+    }
 
     if (resp != RdKafka::ErrorCode::ERR_NO_ERROR) {
         Nan::ThrowError(RdKafka::err2str(resp).c_str());
