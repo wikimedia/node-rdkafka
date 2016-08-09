@@ -12,7 +12,9 @@ RdKafka::Conf* ConfHelper::CreateTopicConfig(Local<Object> jsConfig) {
         if (val == Nan::Undefined()) {
             continue;
         }
-        CONF_SET_PROPERTY(conf, std::string(*Nan::Utf8String(key)), std::string(*Nan::Utf8String(val)));
+        CONF_SET_PROPERTY(conf,
+            std::string(*Nan::Utf8String(key)),
+            std::string(*Nan::Utf8String(val)));
     }
     return conf;
 }

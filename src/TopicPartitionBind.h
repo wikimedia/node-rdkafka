@@ -12,6 +12,7 @@ class TopicPartitionBind : public Nan::ObjectWrap {
     public:
         static Nan::Persistent<Function> constructor;
         static NAN_MODULE_INIT(Init);
+        static NAN_METHOD(New);
 
         // String topic;
         static NAN_GETTER(Topic);
@@ -27,10 +28,9 @@ class TopicPartitionBind : public Nan::ObjectWrap {
 
         RdKafka::TopicPartition* impl;
     private:
-        static NAN_METHOD(New);
 
+        explicit TopicPartitionBind(RdKafka::TopicPartition* impl);
         TopicPartitionBind(std::string topic, int partition);
-        TopicPartitionBind(RdKafka::TopicPartition* impl);
         ~TopicPartitionBind();
 };
 

@@ -7,6 +7,122 @@
 
 using namespace v8;
 
+// Consumer loop
+void ConsumerLoop(void* context) {
+    KafkaConsumerBind* consumerBind = static_cast<KafkaConsumerBind*> (context);
+    while(consumerBind->running) {
+        // TODO: peek one element, not clone the whole thing
+        std::vector<Nan::Persistent<Function>*>* consumerWork =
+            consumerBind->consumeJobQueue->pull();
+
+        if (!consumerWork) {
+            // Nothing it returned, that means we were stopped.
+            return;
+        }
+        for(std::vector<Nan::Persistent<Function>*>::iterator it = consumerWork->begin();
+                it != consumerWork->end(); ++it) {
+
+            Nan::Persistent<Function>* consumption = *it;
+            RdKafka::Message* message = consumerBind->impl->consume(500);
+            while (message->err() == RdKafka::ErrorCode::ERR__PARTITION_EOF
+                    || message->err() == RdKafka::ErrorCode::ERR__TIMED_OUT) {
+
+                if (!consumerBind->running) {
+                    delete message;
+                    delete consumerWork;
+                    return;
+                }
+
+                delete message;
+                message = consumerBind->impl->consume(500);
+            }
+
+            if (!consumerBind->running) {
+                delete message;
+                delete consumerWork;
+                return;
+            }
+
+            consumerBind->resultQueue->push(new MessageResult(consumption, message));
+            delete message;
+            uv_async_send(&consumerBind->resultNotifier);
+        }
+        delete consumerWork;
+    }
+};
+
+// Message consumed callback.
+// The uv_async_t is notified after each message consumption, but libuv might coerce the callback
+// execution.
+// Called on event loop thread.
+void ConsumerCallback(uv_async_t* handle) {
+    Isolate* isolate = Isolate::GetCurrent();
+    HandleScope handleScope(isolate);
+
+    KafkaConsumerBind* consumerBind = static_cast<KafkaConsumerBind*> (handle->data);
+    std::vector<Result*>* results = consumerBind->resultQueue->pull();
+
+    if (!results) {
+        return;
+    }
+
+    for(std::vector<Result*>::iterator it = results->begin(); it != results->end(); ++it) {
+        Result* result = *it;
+        if (result->resultType == ResultType::MESSAGE) {
+            MessageResult* msgResult = static_cast<MessageResult*>(result);
+            Local<Function> jsCallback = Nan::New(*msgResult->callback);
+            if (msgResult->err == RdKafka::ErrorCode::ERR_NO_ERROR) {
+                Local<Value> argv[] = { Nan::Null(), MessageBind::FromImpl(msgResult) };
+                Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
+            } else {
+                // Got at error, return it as the first callback arg
+                Local<Value> argv[] = { msgResult->toJSError(), Nan::Null() };
+                Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
+            }
+            delete msgResult;
+        } else {
+            Local<Function> emit = Nan::New(*consumerBind->jsEmitCb);
+            EventResult* eventResult = static_cast<EventResult*>(result);
+            switch (eventResult->type) {
+                case RdKafka::Event::EVENT_ERROR: {
+                    Local<Value> argv[] = {
+                        Nan::New("error").ToLocalChecked(),
+                        eventResult->toJSError()
+                    };
+                    Nan::MakeCallback(Nan::GetCurrentContext()->Global(), emit, 2, argv);
+                    break;
+                }
+                case RdKafka::Event::EVENT_LOG: {
+                    Local<Value> argv[] = {
+                        Nan::New("log").ToLocalChecked(),
+                        eventResult->toJSLog()
+                    };
+                    Nan::MakeCallback(Nan::GetCurrentContext()->Global(), emit, 2, argv);
+                    break;
+                }
+                case RdKafka::Event::EVENT_THROTTLE: {
+                    Local<Value> argv[] = {
+                        Nan::New("throttle").ToLocalChecked(),
+                        eventResult->toJSThrottle()
+                    };
+                    Nan::MakeCallback(Nan::GetCurrentContext()->Global(), emit, 2, argv);
+                    break;
+                }
+                case RdKafka::Event::EVENT_STATS: {
+                    Local<Value> argv[] = {
+                        Nan::New("stats").ToLocalChecked(),
+                        Nan::New(eventResult->str.c_str()).ToLocalChecked()
+                    };
+                    Nan::MakeCallback(Nan::GetCurrentContext()->Global(), emit, 2, argv);
+                    break;
+                }
+            }
+            delete eventResult;
+        }
+    }
+    delete results;
+};
+
 Nan::Persistent<Function> KafkaConsumerBind::constructor;
 
 NAN_MODULE_INIT(KafkaConsumerBind::Init) {
@@ -46,7 +162,9 @@ NAN_METHOD(KafkaConsumerBind::New) {
     info.GetReturnValue().Set(info.This());
 };
 
-KafkaConsumerBind::KafkaConsumerBind(RdKafka::Conf* conf, Nan::Persistent<Function>* jsEmitCb) : running(true) {
+KafkaConsumerBind::KafkaConsumerBind(RdKafka::Conf* conf,
+        Nan::Persistent<Function>* jsEmitCb) : running(true) {
+
     std::string errstr;
     CONF_SET_PROPERTY(conf, "event_cb", this);
 
@@ -61,9 +179,9 @@ KafkaConsumerBind::KafkaConsumerBind(RdKafka::Conf* conf, Nan::Persistent<Functi
     this->consumeJobQueue = new Queue<Nan::Persistent<Function>>(Blocking::BLOCKING);
     this->resultQueue = new Queue<Result>(Blocking::NON_BLOCKING);
 
-    uv_async_init(uv_default_loop(), &this->resultNotifier, &KafkaConsumerBind::ConsumerCallback);
+    uv_async_init(uv_default_loop(), &this->resultNotifier, &ConsumerCallback);
     this->resultNotifier.data = this;
-    uv_thread_create(&this->consumerThread, KafkaConsumerBind::ConsumerLoop, this);
+    uv_thread_create(&this->consumerThread, ConsumerLoop, this);
 };
 
 KafkaConsumerBind::~KafkaConsumerBind() {
@@ -116,7 +234,8 @@ NAN_METHOD(KafkaConsumerBind::Commit) {
         Local<Array> jsArray = Local<Array>::Cast(info[0]);
         std::vector<RdKafka::TopicPartition*> topicPartitions(jsArray->Length());
         for (int i = 0; i < jsArray->Length(); i++) {
-            TopicPartitionBind* topicPartition = Nan::ObjectWrap::Unwrap<TopicPartitionBind>(Local<Object>::Cast(jsArray->Get(i)));
+            TopicPartitionBind* topicPartition =
+                Nan::ObjectWrap::Unwrap<TopicPartitionBind>(Local<Object>::Cast(jsArray->Get(i)));
             topicPartitions[i] = topicPartition->impl;
         }
         obj->impl->commitAsync(topicPartitions);
@@ -157,107 +276,3 @@ void KafkaConsumerBind::event_cb (RdKafka::Event &event) {
     this->resultQueue->push(new EventResult(&event));
     uv_async_send(&this->resultNotifier);
 }
-
-// Consumer loop
-void KafkaConsumerBind::ConsumerLoop(void* context) {
-    KafkaConsumerBind* consumerBind = static_cast<KafkaConsumerBind*> (context);
-    while(consumerBind->running) {
-        // TODO: peek one element, not clone the whole thing
-        std::vector<Nan::Persistent<Function>*>* consumerWork = consumerBind->consumeJobQueue->pull();
-
-        if (!consumerWork) {
-            // Nothing it returned, that means we were stopped.
-            return;
-        }
-        for(std::vector<Nan::Persistent<Function>*>::iterator it = consumerWork->begin(); it != consumerWork->end(); ++it) {
-            Nan::Persistent<Function>* consumption = *it;
-            RdKafka::Message* message = consumerBind->impl->consume(500);
-            while (message->err() == RdKafka::ErrorCode::ERR__PARTITION_EOF
-                    || message->err() == RdKafka::ErrorCode::ERR__TIMED_OUT) {
-
-                if (!consumerBind->running) {
-                    delete message;
-                    delete consumerWork;
-                    return;
-                }
-
-                delete message;
-                message = consumerBind->impl->consume(500);
-            }
-
-            if (!consumerBind->running) {
-                delete message;
-                delete consumerWork;
-                return;
-            }
-
-            consumerBind->resultQueue->push(new MessageResult(consumption, message));
-            delete message;
-            uv_async_send(&consumerBind->resultNotifier);
-        }
-        delete consumerWork;
-    }
-};
-
-// Message consumed callback.
-// The uv_async_t is notified after each message consumption, but libuv might coerce the callback
-// execution.
-// Called on event loop thread.
-void KafkaConsumerBind::ConsumerCallback(uv_async_t* handle) {
-    Isolate* isolate = Isolate::GetCurrent();
-    HandleScope handleScope(isolate);
-
-    KafkaConsumerBind* consumerBind = static_cast<KafkaConsumerBind*> (handle->data);
-    std::vector<Result*>* results = consumerBind->resultQueue->pull();
-
-    if (!results) {
-        return;
-    }
-
-    for(std::vector<Result*>::iterator it = results->begin(); it != results->end(); ++it) {
-        Result* result = *it;
-        if (result->type == ResultType::MESSAGE) {
-            MessageResult* msgResult = static_cast<MessageResult*>(result);
-            Local<Function> jsCallback = Nan::New(*msgResult->callback);
-            if (msgResult->err == RdKafka::ErrorCode::ERR_NO_ERROR) {
-                Local<Value> argv[] = { Nan::Null(), MessageBind::FromImpl(msgResult) };
-                Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
-            } else {
-                // Got at error, return it as the first callback arg
-                Local<Value> argv[] = { msgResult->toJSError(), Nan::Null() };
-                Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
-            }
-            delete msgResult;
-        } else {
-            Local<Function> emit = Nan::New(*consumerBind->jsEmitCb);
-            EventResult* eventResult = static_cast<EventResult*>(result);
-            switch (eventResult->type) {
-                case RdKafka::Event::EVENT_ERROR: {
-                    Local<Value> argv[] = { Nan::New("error").ToLocalChecked(), eventResult->toJSError() };
-                    Nan::MakeCallback(Nan::GetCurrentContext()->Global(), emit, 2, argv);
-                    break;
-                }
-                case RdKafka::Event::EVENT_LOG: {
-                    Local<Value> argv[] = { Nan::New("log").ToLocalChecked(), eventResult->toJSLog() };
-                    Nan::MakeCallback(Nan::GetCurrentContext()->Global(), emit, 2, argv);
-                    break;
-                }
-                case RdKafka::Event::EVENT_THROTTLE: {
-                    Local<Value> argv[] = { Nan::New("throttle").ToLocalChecked(), eventResult->toJSThrottle() };
-                    Nan::MakeCallback(Nan::GetCurrentContext()->Global(), emit, 2, argv);
-                    break;
-                }
-                case RdKafka::Event::EVENT_STATS: {
-                    Local<Value> argv[] = {
-                        Nan::New("stats").ToLocalChecked(),
-                        Nan::New(eventResult->str.c_str()).ToLocalChecked()
-                    };
-                    Nan::MakeCallback(Nan::GetCurrentContext()->Global(), emit, 2, argv);
-                    break;
-                }
-            }
-            delete eventResult;
-        }
-    }
-    delete results;
-};

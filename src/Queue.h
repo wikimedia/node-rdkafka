@@ -8,7 +8,7 @@ enum Blocking { BLOCKING, NON_BLOCKING };
 
 template <class CONTENT_TYPE> class Queue {
     public:
-        Queue(Blocking isBlocking) : blocking(isBlocking) {
+        explicit Queue(Blocking isBlocking) : blocking(isBlocking) {
             running = true;
             this->contentVector = new std::vector<CONTENT_TYPE*>();
             uv_mutex_init(&this->mutex);
@@ -17,9 +17,7 @@ template <class CONTENT_TYPE> class Queue {
         ~Queue() {
             uv_cond_destroy(&this->cond);
             uv_mutex_destroy(&this->mutex);
-            if (this->contentVector) {
-                delete this->contentVector;
-            }
+            delete this->contentVector;
         }
 
         void push(CONTENT_TYPE* content) {
@@ -51,7 +49,8 @@ template <class CONTENT_TYPE> class Queue {
                     }
                 }
 
-                result = new std::vector<CONTENT_TYPE*>(this->contentVector->begin(), this->contentVector->end());
+                result = new std::vector<CONTENT_TYPE*>(this->contentVector->begin(),
+                    this->contentVector->end());
                 delete this->contentVector;
                 this->contentVector = new std::vector<CONTENT_TYPE*>();
             }

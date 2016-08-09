@@ -107,6 +107,8 @@ class KafkaConsumer extends EventEmitter {
         this.impl.commit(commitValues);
     }
 
+
+
     /**
      * Close and shut down the consumer.
      *

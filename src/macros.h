@@ -28,7 +28,7 @@
     if (info.Length() <= (i) || !info[i]->IsExternal()) {                      \
         return Nan::ThrowTypeError("Argument " #i " must be a number");        \
     }                                                                          \
-    TYPE var = (TYPE) External::Cast(*info[i])->Value();
+    TYPE var = static_cast<TYPE>(External::Cast(*info[i])->Value());
 
 #define REQUIRE_ARGUMENT_OBJECT(i, var)                                        \
     if (info.Length() <= (i) || !info[i]->IsObject()) {                        \

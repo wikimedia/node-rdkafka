@@ -11,8 +11,8 @@ using namespace v8;
 enum ResultType { MESSAGE, EVENT };
 class Result {
     public:
-        Result(ResultType type): type(type) {}
-        ResultType type;
+        explicit Result(ResultType type): resultType(type) {}
+        ResultType resultType;
 };
 
 /**
@@ -21,7 +21,9 @@ class Result {
  */
 class MessageResult : public Result {
     public:
-        MessageResult(Nan::Persistent<Function>* c, RdKafka::Message* message);
+        explicit MessageResult(Nan::Persistent<Function>* callback,
+            RdKafka::Message* message);
+
         ~MessageResult();
         // Construct the message JS object
         Local<Object> toJSObject();
@@ -29,14 +31,16 @@ class MessageResult : public Result {
         Local<Object> toJSError();
 
         Nan::Persistent<Function>* callback;
-        RdKafka::ErrorCode err;
 
-        char* payload;
-        uint32_t len;
         std::string topic;
         int32_t partition;
         double offset;
+
+        char* payload;
+        uint32_t len;
         const std::string* key;
+
+        RdKafka::ErrorCode err;
         std::string errStr;
 };
 
@@ -45,7 +49,7 @@ class MessageResult : public Result {
  */
 class EventResult : public Result {
     public:
-        EventResult(RdKafka::Event* event);
+        explicit EventResult(RdKafka::Event* event);
 
         Local<Object> toJSError();
         Local<Object> toJSLog();

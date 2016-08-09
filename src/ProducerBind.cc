@@ -6,6 +6,46 @@
 
 using namespace v8;
 
+// Running in a background thread in order to call impl->poll from time to time.
+// That makes all the delivery callbacks fire, so we can track the delivery of individual messages
+void Poller(void* context) {
+     ProducerBind* producerBind = static_cast<ProducerBind*> (context);
+     while(producerBind->running) {
+        producerBind->impl->poll(POLLING_TIMEOUT);
+     }
+}
+
+// Deliver report callback - indicates that there're some new messages in the delivered queue
+// The uv_async_t is notified after each message consumption, but libuv might coerce the callback
+// execution.
+// Called on event loop thread.
+void DeliverReportCallback(uv_async_t* handle) {
+    Isolate* isolate = Isolate::GetCurrent();
+    HandleScope handleScope(isolate);
+
+    ProducerBind* producerBind = static_cast<ProducerBind*> (handle->data);
+    std::vector<DeliveryReport*>* deliveredMessages = producerBind->deliverReportQueue->pull();
+
+    for(std::vector<DeliveryReport*>::iterator it = deliveredMessages->begin();
+            it != deliveredMessages->end(); ++it) {
+        DeliveryReport* report = *it;
+
+        Local<Function> jsCallback = Nan::New(*report->callback);
+        if (report->err == RdKafka::ErrorCode::ERR_NO_ERROR) {
+            Local<Value> argv[] = {  Nan::Null(), Nan::New((uint32_t) report->offset) };
+            Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
+        } else {
+            // Got at error, return it as the first callback arg
+            Local<Object> error = Nan::Error(report->errStr.c_str()).As<Object>();
+            error->Set(Nan::New("code").ToLocalChecked(), Nan::New(report->err));
+            Local<Value> argv[] = { error.As<Value>(), Nan::Null() };
+            Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
+        }
+        delete report;
+    }
+    delete deliveredMessages;
+};
+
 Nan::Persistent<Function> ProducerBind::constructor;
 
 NAN_MODULE_INIT(ProducerBind::Init) {
@@ -50,10 +90,10 @@ ProducerBind::ProducerBind(RdKafka::Conf* conf) : running(true) {
 
     this->deliverReportQueue = new Queue<DeliveryReport>(Blocking::NON_BLOCKING);
 
-    uv_async_init(uv_default_loop(), &this->deliveryNotifier, &ProducerBind::DeliverReportCallback);
+    uv_async_init(uv_default_loop(), &this->deliveryNotifier, &DeliverReportCallback);
     this->deliveryNotifier.data = this;
 
-    uv_thread_create(&this->pollingThread, ProducerBind::Poller, this);
+    uv_thread_create(&this->pollingThread, Poller, this);
 }
 
 ProducerBind::~ProducerBind() {
@@ -86,7 +126,8 @@ NAN_METHOD(ProducerBind::Produce) {
 
     ProducerBind* obj = ObjectWrap::Unwrap<ProducerBind>(info.Holder());
 
-    // TODO: We don't want to recreate it all the time, take it as argument. However the API is better/cleaner like this.
+    // TODO: We don't want to recreate it all the time, take it as argument.
+    // However the API is better/cleaner like this.
     RdKafka::Topic *topic = RdKafka::Topic::create(obj->impl, topic_name, NULL, errstr);
     if (!topic) {
         Nan::ThrowError(errstr.c_str());
@@ -126,48 +167,9 @@ NAN_METHOD(ProducerBind::Close) {
 void ProducerBind::dr_cb(RdKafka::Message &message) {
     this->deliverReportQueue->push(new DeliveryReport(
         static_cast<Nan::Persistent<Function>*>(message.msg_opaque()),
-        message.offset() - 1, // Delivery report gives us the offset that's larger by one. // TODO report bug
+        // Delivery report gives us the offset that's larger by one. // TODO report bug
+        message.offset() - 1,
         message.err(),
         message.errstr()));
     uv_async_send(&this->deliveryNotifier);
 }
-
-// Running in a background thread in order to call impl->poll from time to time.
-// That makes all the delivery callbacks fire, so we can track the delivery of individual messages
-void ProducerBind::Poller(void* context) {
-     ProducerBind* producerBind = static_cast<ProducerBind*> (context);
-     while(producerBind->running) {
-        producerBind->impl->poll(POLLING_TIMEOUT);
-     }
-}
-
-// Deliver report callback - indicates that there're some new messages in the delivered queue
-// The uv_async_t is notified after each message consumption, but libuv might coerce the callback
-// execution.
-// Called on event loop thread.
-void ProducerBind::DeliverReportCallback(uv_async_t* handle) {
-    Isolate* isolate = Isolate::GetCurrent();
-    HandleScope handleScope(isolate);
-
-    ProducerBind* producerBind = static_cast<ProducerBind*> (handle->data);
-    std::vector<DeliveryReport*>* deliveredMessages = producerBind->deliverReportQueue->pull();
-
-
-    for(std::vector<DeliveryReport*>::iterator it = deliveredMessages->begin(); it != deliveredMessages->end(); ++it) {
-        DeliveryReport* report = *it;
-
-        Local<Function> jsCallback = Nan::New(*report->callback);
-        if (report->err == RdKafka::ErrorCode::ERR_NO_ERROR) {
-            Local<Value> argv[] = {  Nan::Null(), Nan::New((uint32_t) report->offset) };
-            Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
-        } else {
-            // Got at error, return it as the first callback arg
-            Local<Object> error = Nan::Error(report->errStr.c_str()).As<Object>();
-            error->Set(Nan::New("code").ToLocalChecked(), Nan::New(report->err));
-            Local<Value> argv[] = { error.As<Value>(), Nan::Null() };
-            Nan::MakeCallback(Nan::GetCurrentContext()->Global(), jsCallback, 2, argv);
-        }
-        delete report;
-    }
-    delete deliveredMessages;
-};

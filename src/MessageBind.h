@@ -14,6 +14,7 @@ class MessageBind : public Nan::ObjectWrap {
     public:
         static Nan::Persistent<Function> constructor;
         static NAN_MODULE_INIT(Init);
+        static NAN_METHOD(New);
 
         //string topicName;
         static NAN_GETTER(TopicName);
@@ -28,9 +29,8 @@ class MessageBind : public Nan::ObjectWrap {
 
         static Local<Object> FromImpl(MessageResult* impl);
     private:
-        static NAN_METHOD(New);
 
-        MessageBind(MessageResult* impl);
+        explicit MessageBind(MessageResult* impl);
         ~MessageBind();
 
         char* payload;

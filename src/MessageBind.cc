@@ -41,25 +41,23 @@ Local<Object> MessageBind::FromImpl(MessageResult* impl) {
     return Nan::NewInstance(Nan::New(MessageBind::constructor), argc, argv).ToLocalChecked();
 }
 
-MessageBind::MessageBind(MessageResult* impl) {
-    this->payload = impl->payload;
-    this->len = impl->len;
-    this->topic = impl->topic;
-    this->partition = impl->partition;
-    this->offset = impl->offset;
-    this->key = impl->key;
-
-    this->buffer = NULL;
-};
+MessageBind::MessageBind(MessageResult* impl) :
+    payload(impl->payload),
+    len(impl->len),
+    topic(impl->topic),
+    partition(impl->partition),
+    offset(impl->offset),
+    key(impl->key),
+    buffer(NULL) { };
 MessageBind::~MessageBind() {
-    if (this->buffer != NULL) {
+    if (this->buffer == NULL) {
+        // We didn't transfer ownership to JS, delete payload
+        free(this->payload);
+    } else {
         // Don't delete the payload here - it's passed to the v8 Buffer
         // without making a copy, so the memory is handled by v8 GC.
         this->buffer->Reset();
         delete this->buffer;
-    } else {
-        // We didn't transfer ownership to JS, delete payload
-        free(this->payload);
     }
 };
 
@@ -76,7 +74,8 @@ NAN_GETTER(MessageBind::Partition) {
 NAN_GETTER(MessageBind::Payload) {
     MessageBind* obj = ObjectWrap::Unwrap<MessageBind>(info.Holder());
     if (obj->buffer == NULL) {
-        obj->buffer = new Nan::Persistent<Object>(Nan::NewBuffer((char*) obj->payload, (uint32_t) obj->len).ToLocalChecked());
+        obj->buffer = new Nan::Persistent<Object>(Nan::NewBuffer((char*) obj->payload,
+            (uint32_t) obj->len).ToLocalChecked());
     }
     info.GetReturnValue().Set(Nan::New(*obj->buffer));
 }

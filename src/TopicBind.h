@@ -14,13 +14,13 @@ class TopicBind : public Nan::ObjectWrap {
     public:
         static Nan::Persistent<Function> constructor;
         static NAN_MODULE_INIT(Init);
+        static NAN_METHOD(New);
 
         // string name();
         static NAN_METHOD(Name);
 
         RdKafka::Topic* impl;
     private:
-        static NAN_METHOD(New);
 
         // TODO: take Conf object as the input
         TopicBind();
