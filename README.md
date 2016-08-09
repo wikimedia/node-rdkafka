@@ -65,8 +65,7 @@ To build against a globally installed librdkafka (e.g. one installed
 with .deb packages), do
 
 ```
-node-gyp configure --BUILD_LIBRDKAKFA=0
-node-gyp build
+node-gyp --BUILD_LIBRDKAKFA=0 build
 ```
 
 ##

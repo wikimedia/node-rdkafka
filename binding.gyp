@@ -46,53 +46,60 @@
           }
         ]
       ]
-    },
-
-    {
-      "target_name": "librdkafka_config_h",
-      "type": "none",
-      "actions": [
-        {
-          'action_name': 'configure_librdkafka',
-          'message': 'configuring librdkafka...',
-          'inputs': [
-            'deps/librdkafka/configure',
-          ],
-          'outputs': [
-            'deps/librdkafka/config.h',
-          ],
-          'action': ['eval', 'cd deps/librdkafka && ./configure'],
-        },
-      ],
-    },
-    {
-      "target_name": "librdkafka",
-      "type": "static_library",
-      'dependencies': [
-        'librdkafka_config_h',
-      ],
-      "sources": [
-        "<!@(ls -1 ./deps/librdkafka/src/*.c)",
-        "<!@(ls -1 ./deps/librdkafka/src-cpp/*.cpp)",
-      ],
-      'cflags_cc!': [ '-fno-rtti' ],
-      'conditions': [
-        [
-          'OS=="mac"',
-          {
-            'xcode_settings': {
-              'MACOSX_DEPLOYMENT_TARGET': '10.11',
-              'OTHER_CFLAGS' : ['-Wno-sign-compare', '-Wno-missing-field-initializers'],
-              'GCC_ENABLE_CPP_RTTI': 'YES'
-            }
-          }
-        ],[
-          'OS=="linux"',
-          {
-            'cflags' : [ '-Wno-sign-compare', '-Wno-missing-field-initializers', '-Wno-empty-body', '-g'],
-          }
-        ]
-      ]
     }
-  ]
+  ],
+  "conditions": [
+    [ '<(BUILD_LIBRDKAFKA)==1', {
+        "targets": [
+            {
+              "target_name": "librdkafka_config_h",
+              "type": "none",
+              "actions": [
+                {
+                  'action_name': 'configure_librdkafka',
+                  'message': 'configuring librdkafka...',
+                  'inputs': [
+                    'deps/librdkafka/configure',
+                  ],
+                  'outputs': [
+                    'deps/librdkafka/config.h',
+                  ],
+                  'action': ['eval', 'cd deps/librdkafka && ./configure'],
+                },
+              ],
+            },
+            {
+              "target_name": "librdkafka",
+              "type": "static_library",
+              'dependencies': [
+                'librdkafka_config_h',
+              ],
+              "sources": [
+                "<!@(ls -1 ./deps/librdkafka/src/*.c)",
+                "<!@(ls -1 ./deps/librdkafka/src-cpp/*.cpp)",
+              ],
+              'cflags_cc!': [ '-fno-rtti' ],
+              'conditions': [
+                [
+                  'OS=="mac"',
+                  {
+                    'xcode_settings': {
+                      'MACOSX_DEPLOYMENT_TARGET': '10.11',
+                      'OTHER_CFLAGS' : ['-Wno-sign-compare', '-Wno-missing-field-initializers'],
+                      'GCC_ENABLE_CPP_RTTI': 'YES'
+                    }
+                  }
+                ],[
+                  'OS=="linux"',
+                  {
+                    'cflags' : [ '-Wno-sign-compare', '-Wno-missing-field-initializers', '-Wno-empty-body', '-g'],
+                  }
+                ]
+              ]
+            }
+        ]
+
+        }
+    ]
+    ]
 }

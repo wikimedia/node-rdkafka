@@ -35,16 +35,9 @@ function get1() {
     })
     .then(get1);
 }
-get1();
-get1();
-get1();
-get1();
-get1();
-get1();
-get1();
-get1();
-get1();
-get1();
+for (let i = 0; i < 1000; i++) {
+    get1();
+}
 
 /*const consumer2 = new kafka.KafkaConsumer({
     'metadata.broker.list': 'localhost:9092',
