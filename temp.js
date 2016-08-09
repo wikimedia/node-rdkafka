@@ -31,7 +31,6 @@ function get1() {
         if ((i++) % 10000 === 0) {
             console.log(i * 1000 / (new Date() - startTime));
         }
-        //global.gc();
     })
     .then(get1);
 }

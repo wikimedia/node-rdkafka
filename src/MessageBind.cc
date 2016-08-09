@@ -81,7 +81,7 @@ NAN_GETTER(MessageBind::Payload) {
     if (obj->buffer == NULL) {
         obj->buffer = new Nan::Persistent<Object>(Nan::NewBuffer((char*) obj->payload, (uint32_t) obj->len).ToLocalChecked());
     }
-    info.GetReturnValue().Set(Nan::New(obj->buffer));
+    info.GetReturnValue().Set(Nan::New(*obj->buffer));
 }
 
 NAN_GETTER(MessageBind::Key) {
