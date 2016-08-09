@@ -116,7 +116,7 @@ class.
 
 * [Producer](#Producer)
     * [new Producer(conf)](#new_Producer_new)
-    * [.produce(topic, partition, payload)](#Producer+produce)
+    * [.produce(topic, partition, payload, [key])](#Producer+produce)
     * [.close()](#Producer+close)
 
 <a name="new_Producer_new"></a>
@@ -131,7 +131,7 @@ Constructs a new producer.
 
 <a name="Producer+produce"></a>
 
-### producer.produce(topic, partition, payload)
+### producer.produce(topic, partition, payload, [key])
 Send a message to the queue.
 
 **Kind**: instance method of <code>[Producer](#Producer)</code>  
@@ -142,6 +142,7 @@ Send a message to the queue.
 | topic | <code>string</code> | a name of the topic to send the message to |
 | partition | <code>Number</code> | number of a partition to send the message to |
 | payload | <code>string</code> | the contents of the message |
+| [key] | <code>string</code> | an optional message key, if defined it will be                       passed to the topic partitioner as well as be sent                       with the message to the broker and passed on to the consumer. |
 
 <a name="Producer+close"></a>
 
@@ -166,7 +167,7 @@ all property access is mapped to the calls of appropriate C++ methods.
 
 | Name | Type | Description |
 | --- | --- | --- |
-| topic | <code>string</code> | The topic, readonly |
+| topicName | <code>string</code> | The topic, readonly |
 | partition | <code>number</code> | The partition, readonly |
 | offset | <code>number</code> | The offset |
 | err | <code>ErrorCode</code> | The error code, readonly |

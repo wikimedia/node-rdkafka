@@ -3,3 +3,4 @@ coverage
 src
 docs
 deps
+temp.js

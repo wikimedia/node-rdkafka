@@ -23,6 +23,7 @@
     "coverage/**",
     "deps/**",
     "docs/**",
-    "src/**"
+    "src/**",
+    "temp.js"
   ]
 }

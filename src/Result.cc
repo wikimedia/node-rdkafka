@@ -15,7 +15,11 @@ MessageResult::MessageResult(Nan::Persistent<Function>* c, RdKafka::Message* mes
     this->topic = message->topic_name();
     this->partition = message->partition();
     this->offset = message->offset();
-    this->key = message->key();
+    if (message->key_pointer() != NULL) {
+        this->key = new std::string((char*) message->key_pointer(), message->key_len());
+    } else {
+        this->key = NULL;
+    }
 
     this->err = message->err();
     this->errStr = message->errstr();

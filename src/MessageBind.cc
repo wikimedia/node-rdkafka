@@ -48,13 +48,10 @@ MessageBind::MessageBind(MessageResult* impl) {
     this->partition = impl->partition;
     this->offset = impl->offset;
     this->key = impl->key;
+
     this->buffer = NULL;
 };
 MessageBind::~MessageBind() {
-    if (this->key != NULL) {
-        delete this->key;
-    }
-
     if (this->buffer != NULL) {
         // Don't delete the payload here - it's passed to the v8 Buffer
         // without making a copy, so the memory is handled by v8 GC.
@@ -86,9 +83,8 @@ NAN_GETTER(MessageBind::Payload) {
 
 NAN_GETTER(MessageBind::Key) {
    MessageBind* obj = ObjectWrap::Unwrap<MessageBind>(info.Holder());
-   const std::string* key = obj->key;
-   if (key != NULL) {
-        info.GetReturnValue().Set(Nan::New(*key).ToLocalChecked());
+   if (obj->key != NULL) {
+        info.GetReturnValue().Set(Nan::New(*obj->key).ToLocalChecked());
    } else {
         info.GetReturnValue().Set(Nan::Undefined());
    }

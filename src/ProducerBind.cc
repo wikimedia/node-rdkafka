@@ -63,12 +63,26 @@ ProducerBind::~ProducerBind() {
 
 NAN_METHOD(ProducerBind::Produce) {
     std::string errstr;
+    std::string* key;
 
-    REQUIRE_ARGUMENTS(4);
+    REQUIRE_ARGUMENTS(5);
     REQUIRE_ARGUMENT_STRING(0, topic_name);
     REQUIRE_ARGUMENT_NUMBER(1, partition);
     REQUIRE_ARGUMENT_STRING(2, payload);
-    REQUIRE_ARGUMENT_FUNCTION(3, jsCallback);
+
+    // Key is optional, so might be undefined
+    if (info.Length() <= 3 || (!info[3]->IsString() && !info[3]->IsUndefined())) {
+        return Nan::ThrowTypeError("Argument 4 must be a string or undefined");
+    }
+
+
+    if (info[3]->IsString()) {
+        key = new std::string(*Nan::Utf8String(info[3]));
+    } else {
+        key = NULL;
+    }
+
+    REQUIRE_ARGUMENT_FUNCTION(4, jsCallback);
 
     ProducerBind* obj = ObjectWrap::Unwrap<ProducerBind>(info.Holder());
 
@@ -86,7 +100,7 @@ NAN_METHOD(ProducerBind::Produce) {
     RdKafka::ErrorCode resp = obj->impl->produce(topic, partition,
     			  RdKafka::Producer::RK_MSG_COPY,
     			  const_cast<char *>(payload.c_str()), payload.size(),
-    			  NULL, (void*) persistentCallback);
+    			  key, (void*) persistentCallback);
     delete topic;
 
     if (resp != RdKafka::ErrorCode::ERR_NO_ERROR) {

@@ -2,9 +2,9 @@
 
 const kafka = require('./index');
 
-/*const producer = new kafka.Producer({
+const producer = new kafka.Producer({
  'metadata.broker.list': 'localhost:9092'
- });*/
+ });
 const consumer1 = new kafka.KafkaConsumer({
     'metadata.broker.list': 'localhost:9092',
     'group.id': 'my_group_id',
@@ -22,7 +22,7 @@ consumer1.on('log', (err) => {
 consumer1.on('stats', (err) => {
     console.log('CONS1 STATS: ', err);
 });
-let startTime;
+/*let startTime;
 let i = 0;
 function get1() {
     return consumer1.consume()
@@ -36,9 +36,9 @@ function get1() {
 }
 for (let i = 0; i < 1000; i++) {
     get1();
-}
+}*/
 
-/*const consumer2 = new kafka.KafkaConsumer({
+const consumer2 = new kafka.KafkaConsumer({
     'metadata.broker.list': 'localhost:9092',
     'group.id': 'my_group_id',
     'fetch.wait.max.ms': '1',
@@ -54,7 +54,7 @@ consumer2.on('log', (err) => {
 });
 
 function get2() {
-    producer.produce('example_topic', 0, 'Test message')
+    producer.produce('example_topic', 0, 'Test message', 'TEST KEY')
     .then((offset) => {
         console.log(`Produced a message with offset ${offset}`);
 
@@ -64,9 +64,10 @@ function get2() {
                 `   topic: ${message.topicName}\n` +
                 `   partition: ${message.partition}\n` +
                 `   offset: ${message.offset}\n` +
-                `   payload: ${message.payload.toString()}\n`);
+                `   payload: ${message.payload.toString()}\n` +
+                `   key: ${message.key}\n`);
         })
         .then(get2);
     });
 }
-get2();*/
+get2();

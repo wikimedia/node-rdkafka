@@ -165,12 +165,15 @@ class Producer {
      * @param {string} topic a name of the topic to send the message to
      * @param {Number} partition number of a partition to send the message to
      * @param {string} payload the contents of the message
+     * @param {string} [key] an optional message key, if defined it will be
+     *                       passed to the topic partitioner as well as be sent
+     *                       with the message to the broker and passed on to the consumer.
      *
      * @see [RdKafka::Producer::produce](http://docs.confluent.io/3.0.0/clients/librdkafka/classRdKafka_1_1Producer.html#ab90a30c5e5fb006a3b4004dc4c9a7923)
      */
-    produce(topic, partition, payload) {
+    produce(topic, partition, payload, key) {
         return new P((resolve, reject) => {
-            this.impl.produce(topic, partition, payload, (error, offset) => {
+            this.impl.produce(topic, partition, payload, key, (error, offset) => {
                 if (error) {
                     return reject(error);
                 }
