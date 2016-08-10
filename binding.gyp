@@ -1,7 +1,7 @@
 {
   'variables': {
       # may be redefined in command line on configuration stage
-      'BUILD_LIBRDKAFKA%': 1,
+      'BUILD_LIBRDKAFKA%': '<!(echo ${BUILD_LIBRDKAFKA:-1})',
   },
   "targets": [
     {
